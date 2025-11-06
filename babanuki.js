@@ -104,22 +104,6 @@ function playJoinSound() {
 }
 
 /**
- * 退出したときの音
- */
-function playLeaveSound() {
-    if (!synth) return;
-    try {
-        const now = Tone.now();
-        synth.triggerAttackRelease("C3", "4n", now);
-        synth.triggerAttackRelease("A2", "4n", now + 0.4);
-        synth.triggerAttackRelease("C1", "4n", now);
-        synth.triggerAttackRelease("A0", "4n", now + 0.4);
-    } catch (e) {
-        console.error("playClickSound error:", e);
-    }
-}
-
-/**
  * カードクリック音
  */
 function playClickSound() {
@@ -760,7 +744,6 @@ async function initLobby(myName) {
 
         if (leftPresences && leftPresences.length > 0 && leftPresences[0].name && leftPresences[0].user_id !== userId) {
             if (leftPresences[0].user_status === 'free') {
-                playLeaveSound();
                 sendLobbyNotification(`${leftPresences[0].name} が退出しました`);
             }
         }

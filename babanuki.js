@@ -20,6 +20,7 @@ const SYSTEM_USER_ID = 'system';
 let chatChannel;
 let chatMessagesEl, chatInputEl, chatSendBtn;
 let previousLobbyChatMsgId = '';
+let previousLocalLobbyChatMsgId = '';
 
 // 対戦者チャット
 let gameChatChannel, gameChatMessages, gameChatInput, gameChatSend;
@@ -86,6 +87,36 @@ async function initializeAudio() {
     }
     // シンセサイザーを初期化
     synth = new Tone.PolySynth(Tone.Synth).toDestination();
+}
+
+/**
+ * 待合室に入ってきたときの音
+ */
+function playJoinSound() {
+    if (!synth) return;
+    try {
+        const now = Tone.now();
+        synth.triggerAttackRelease("E5", "8n", now);
+        synth.triggerAttackRelease("C5", "4n", now + 0.3);
+    } catch (e) {
+        console.error("playClickSound error:", e);
+    }
+}
+
+/**
+ * 退出したときの音
+ */
+function playLeaveSound() {
+    if (!synth) return;
+    try {
+        const now = Tone.now();
+        synth.triggerAttackRelease("C3", "4n", now);
+        synth.triggerAttackRelease("A2", "4n", now + 0.4);
+        synth.triggerAttackRelease("C1", "4n", now);
+        synth.triggerAttackRelease("A0", "4n", now + 0.4);
+    } catch (e) {
+        console.error("playClickSound error:", e);
+    }
 }
 
 /**
@@ -172,6 +203,22 @@ function playInviteSound() {
         synth.triggerAttackRelease("A4", "8n", now);
         synth.triggerAttackRelease("C5", "8n", now + 0.2);
         synth.triggerAttackRelease("E5", "8n", now + 0.4);
+        synth.triggerAttackRelease("A4", "8n", now + 0.6);
+        synth.triggerAttackRelease("C5", "8n", now + 0.8);
+        synth.triggerAttackRelease("E5", "8n", now + 1.0);
+    } catch (e) {
+        console.error("playInviteSound error:", e);
+    }
+}
+
+/**
+ * 招待受信音
+ */
+function playChatTransmissionSound() {
+    if (!synth) return;
+    try {
+        const now = Tone.now();
+        synth.triggerAttackRelease("A2", "8n", now);
     } catch (e) {
         console.error("playInviteSound error:", e);
     }
@@ -204,6 +251,80 @@ function playReactionClickSound(emoticon) {
         synth.triggerAttackRelease(note, "8n", now);
     } catch (e) {
         console.error("playReactionClickSound error:", e);
+    }
+}
+
+function speakEmoticonReaction(emoticon) {
+    switch (emoticon) {
+        case 'ヽ(;`Д´)ﾉ':
+            speakText("ぐぬぬっ！ぐぬぬっ！", 0.9, 0.3);
+            break;
+        case '(;´Д`)':
+            speakText("ちょっ、待てよ！", 0.9, 0.3);
+            break;
+        case 'ヽ(´ー｀)ノ':
+            speakText("ふふんふーん！フーン！", 1.2, 1.0);
+            break;
+        case '(^Д^)':
+            speakText("ぎゃはぎゃはーっ！プーックス！", 1.2, 1.0);
+            break;
+        default:
+            note = "G3";
+            break;
+    };
+}
+
+// 音声合成
+const speechMsg = new SpeechSynthesisUtterance();
+const voiceSelect = document.getElementById('voice-select');
+const messageBox = document.getElementById('message-box');
+let voices = [];
+
+// 利用可能な音声の読み込み
+function loadJapVoice() {
+    voices = window.speechSynthesis.getVoices();
+
+    let preferredVoice = null;
+
+    // 日本語の音声を探す
+    const japaneseVoices = voices.filter(v => v.lang.startsWith('ja-'));
+
+    if (japaneseVoices.length > 0) {
+        // 優先する日本語の音声を探す (例えば 'Kyoko', 'Mei' など、ブラウザ依存)
+        preferredVoice = japaneseVoices.find(v => v.name.includes('Google') || v.name.includes('Mei') || v.name.includes('Kyoko')) || japaneseVoices[0];
+    } else {
+        // 日本語音声がない場合は、デフォルトか英語音声を使用
+        console.log('日本語の音声が見つからなかったので英語音声にします。');
+        preferredVoice = voices[0];
+    }
+
+    // 選択された音声を msg オブジェクトに設定
+    if (preferredVoice) {
+        speechMsg.voice = preferredVoice[0];
+    }
+}
+
+// 発話する
+function speakText(text, rate = 1.0, pitch = 1.0) {
+    if ('speechSynthesis' in window) {
+        // 既に発声中の場合はキャンセル
+        if (speechSynthesis.speaking) {
+            speechSynthesis.cancel();
+        }
+
+        speechMsg.text = text;
+        speechMsg.lang = 'ja-JP';
+        speechMsg.rate = rate; // 速度 (感情に応じて調整)
+        speechMsg.pitch = pitch; // ピッチ (デフォルト)
+
+        speechMsg.onend = () => {
+            console.log(text);
+        };
+
+        speechSynthesis.speak(speechMsg);
+
+    } else {
+        console.log('エラー: お使いのブラウザはWeb Speech APIをサポートしていません。');
     }
 }
 
@@ -338,14 +459,14 @@ function showModal(title, body, buttons = []) {
     modalBody.textContent = body;
     modalButtons.innerHTML = ''; // ボタンをクリア
 
-    if (buttons.length === 0) {
-        // デフォルトのOKボタン
-        buttons.push({
-            text: 'はい',
-            class: 'bg-blue-500',
-            action: hideModal
-        });
-    }
+    // if (buttons.length === 0) {
+    //     // デフォルトのOKボタン
+    //     buttons.push({
+    //         text: 'はい',
+    //         class: 'bg-blue-500',
+    //         action: hideModal
+    //     });
+    // }
 
     buttons.forEach(btnInfo => {
         const button = document.createElement('button');
@@ -431,8 +552,8 @@ function checkUserName() {
     if (!myName) {
         candidateName = generateUserName();
         showModal('⚠️ 名前が未入力です', `名前を ${candidateName} にしますか？`, [
+            { text: 'いいえ', class: 'bg-gray-500', action: hideModal },
             { text: 'はい', class: 'bg-green-500', action: () => { nameInput.value = candidateName; hideModal(); } },
-            { text: 'いいえ', class: 'bg-gray-500', action: hideModal }
         ]);
     } else if (myName === SYSTEM_USER_NAME) {
         myName += '（騙り）';
@@ -488,8 +609,8 @@ function djb2Hash(str) {
  */
 function sendLobbyNotification(message) {
     const ts = Date.now();
-    const msgId = djb2Hash('system' + message);
-    const notificationMessage = `${message}`;
+    const msgId = djb2Hash(SYSTEM_USER_NAME + message + SYSTEM_USER_ID);
+    const notificationMessage = message;
 
     chatChannel.send({
         type: 'broadcast',
@@ -521,7 +642,8 @@ function sendChatMessage() {
         event: 'message',
         payload: { id: msgId, name: myName, message: msg, timestamp: ts, userId }
     });
-
+    // チャット送信音を鳴らす
+    playChatTransmissionSound();
 
     input.value = '';
 }
@@ -530,6 +652,11 @@ function sendChatMessage() {
  * ロビーチャットメッセージを画面に表示
  */
 function appendLobbyChatMessage(sender, message, timestamp, isSelf = false) {
+
+    // 重複メッセージ対策
+    hash = djb2Hash(sender + message);
+    if (hash === previousLocalLobbyChatMsgId) return;
+    previousLocalLobbyChatMsgId = hash;
 
     // 常にロビーチャットコンテナには追記する
     const lobbyContainer = document.getElementById('chat-messages');
@@ -563,6 +690,14 @@ async function initLobby(myName) {
     // オーディオコンテキストの初期化
     await initializeAudio();
 
+    // 音声合成リスト読み込み
+    if (speechSynthesis.onvoiceschanged !== undefined) {
+        speechSynthesis.onvoiceschanged = loadJapVoice;
+    } else {
+        // Chromeなど、onvoiceschangedイベントをすぐに発火させないブラウザ対策
+        setTimeout(loadJapVoice, 100);
+    }
+
     userNameEl.innerHTML = `名前: ${myName}`;
 
     // Supabaseクライアントの初期化
@@ -582,7 +717,7 @@ async function initLobby(myName) {
     } catch (error) {
         console.error("シグナルチャンネルのセットアップに失敗:", error);
         showModal('エラー', `シグナルチャンネルへの接続に失敗しました: ${error.message}`, [
-            { text: 'はい', class: 'bg-red-500', action: hideModal }
+            { text: '拝承', class: 'bg-red-500', action: hideModal }
         ]);
         return; // 失敗したらロビー参加を中断
     }
@@ -615,6 +750,7 @@ async function initLobby(myName) {
     lobbyChannel.on('presence', { event: 'join' }, ({ key, newPresences }) => {
         if (newPresences && newPresences.length > 0 && newPresences[0].name && newPresences[0].user_id !== userId &&
             newPresences[0].user_status === 'init') {
+            playJoinSound();
             sendLobbyNotification(`${newPresences[0].name} が入室しました`);
         }
         // syncイベントが直後に発火するので、ここでは描画しない（二重描画防止）
@@ -624,6 +760,7 @@ async function initLobby(myName) {
 
         if (leftPresences && leftPresences.length > 0 && leftPresences[0].name && leftPresences[0].user_id !== userId) {
             if (leftPresences[0].user_status === 'free') {
+                playLeaveSound();
                 sendLobbyNotification(`${leftPresences[0].name} が退出しました`);
             }
         }
@@ -640,7 +777,7 @@ async function initLobby(myName) {
             // ユーザーが意図的に退出した場合はエラーを表示しないようにする
             if (!lobbyChannel || lobbyChannel.state !== 'closed') {
                 showModal('エラー', `ロビーへの参加に失敗しました: ${status}`, [
-                    { text: 'はい', class: 'bg-red-500', action: hideModal }
+                    { text: '拝承', class: 'bg-red-500', action: hideModal }
                 ]);
                 showScreen('setup'); // セットアップ画面に戻す
             }
@@ -653,6 +790,9 @@ async function initLobby(myName) {
  * @param {Object} presenceState - SupabaseのPresenceステート
  */
 function renderLobby(presenceState) {
+    // おもてなしの挨拶
+    // speakText('Windowsを起動するわよ！', 1.1, 1.0);
+
     playerList.innerHTML = ''; // リストをクリア
     noPlayersMessage.classList.add('hidden');
     let playerCount = 0;
@@ -691,7 +831,7 @@ function renderLobby(presenceState) {
                 // 対戦中の場合
                 button = document.createElement('button');
                 button.textContent = `対戦中`;
-                button.className = 'bg-gray-400 text-white font-bold md:text-base text-xs py-1 md:px-4 px-2 rounded-md shadow transition duration-300 cursor-pointer';
+                button.className = 'bg-gray-400 text-white font-bold md:text-base text-xs py-1 md:px-4 px-2 rounded-md shadow transition duration-300';
                 button.disabled = "disabled";
             } else {
                 // 対戦可能の場合
@@ -832,7 +972,7 @@ function inviteToGame(targetUserId, targetName) {
     opponentName = targetName;
     isHost = true;
 
-    showModal('招待中', `${targetName} をゲームに招待しています...`, [
+    showModal('招待中', `${targetName} をババ活に誘ってます……`, [
         { text: 'キャンセル', class: 'bg-gray-500', action: hideModal } // TODO: キャンセル機能
     ]);
 
@@ -869,8 +1009,8 @@ function handleInvite(payload) {
     playInviteSound();
 
     showModal('挑戦者現る！', `${opponentName}から対戦リクエストがきました`, [
-        { text: '許可', class: 'bg-green-600', action: acceptInvite },
         { text: '拒否', class: 'bg-red-500', action: () => rejectInvite(payload.senderUserId) },
+        { text: '許可', class: 'bg-green-600', action: acceptInvite },
     ]);
 
     if (userStatus !== 'busy') {
@@ -908,9 +1048,9 @@ function rejectInvite(targetUserId) {
 function handleReject(payload) {
     const reasonText = payload.reason === 'busy' ? '相手は現在取り込み中です。' : '相手に拒否されました。';
     showModal('招待失敗', reasonText, [
-        { text: 'はい', class: 'bg-blue-500', action: hideModal }
+        { text: '拝承', class: 'bg-blue-500', action: hideModal }
     ]);
-    // resetGameVariables();
+    resetGameVariables();
     if (userStatus !== 'free') {
         userStatus = "free";
         updateMyPresence();
@@ -1018,13 +1158,13 @@ function handleIceCandidate(payload) {
 function leaveGame() {
     // キュー破棄の確認
     showModal('確認', '本当にゲームを終了しますか？', [
+        { text: 'キャンセル', class: 'bg-gray-500', action: hideModal },
         {
             text: '終了する', class: 'bg-red-600', action: () => {
                 // 終了を選択した場合、即座にロビーに戻る
                 exitToLobby();
             }
         },
-        { text: 'キャンセル', class: 'bg-gray-500', action: hideModal },
     ]);
 };
 
@@ -1146,6 +1286,13 @@ function setupDataChannelListeners() {
             case 'hand-size-update':
                 opponentHandSize = msg.size;
                 renderOpponentHand();
+                // 相手の手札が0枚になったか確認 ---
+                if (opponentHandSize === 0) {
+                    // 相手の手札が0枚になった = 自分の負け
+                    // 相手からも 'you-lost' が送られてくるはずだが、
+                    // 念のためこちらでも敗北処理をトリガーする
+                    handleYouLost();
+                }
                 break;
 
             // (ホストが) ゲストからカードを引くリクエストを受ける
@@ -1158,11 +1305,11 @@ function setupDataChannelListeners() {
                 handleCardDrawn(msg.card);
                 break;
 
-            // ターン交代の通知 (無限ループの原因だった箇所)
+            // ターン交代の通知
             case 'turn-update':
                 // 相手のmyTurn状態の逆が、現在の自分のmyTurn状態になる
                 myTurn = !msg.myTurn;
-                // UIを更新するが、シグナルは再送しない (無限ループ防止)
+                // UIを更新するが、シグナルは再送しない
                 updateTurnStatus(false);
                 break;
 
@@ -1200,6 +1347,7 @@ function setupDataChannelListeners() {
                 break;
             case 'emoticon-reaction':
                 emoticon = msg.emoticon;
+                // speakEmoticonReaction(emoticon);
                 renderEmoticonReaction(emoticon);
                 break;
             default:
@@ -1302,7 +1450,6 @@ function appendGameChatMessage(sender, message, timestamp, isSelf = false) {
     gameChatMessages.insertBefore(el, gameChatMessages.firstChild);
 }
 
-
 // 対戦部屋チャットチャンネル初期化
 async function setupGameChat(roomId) {
     if (!supabase || !roomId) return;
@@ -1331,6 +1478,10 @@ async function setupGameChat(roomId) {
 function sendGameChatMessage(msg = null) {
     if (msg === null) {
         msg = gameChatInput.value.trim();
+        if (msg) {
+            // チャット送信音を鳴らす
+            playChatTransmissionSound();
+        }
     }
     if (!msg || !gameChatChannel) return;
 
@@ -1595,16 +1746,17 @@ function initializeGame() {
     if (myHand.length === 0) {
         sendData({ type: 'you-lost' }); // ゲストの負けであることを通知
         showRematchPrompt(true); // ホストが勝ち
+        return;
     }
 
     renderMyHand();
     sendHandSizeUpdate();
     if (guestStarts) {
         updateTurnStatus(false);
-        statusMessage.textContent = "相手のターン。";
+        statusMessage.textContent = "相手のターン…";
     } else {
         updateTurnStatus(true);
-        statusMessage.textContent = "貴殿のターン。";
+        statusMessage.textContent = "貴殿のターン！";
     }
     drawnCardMessageEl.textContent = ''; // メッセージクリア
 }
@@ -1634,13 +1786,6 @@ function showRematchPrompt(isWinner) {
 
     showModal(title, body, [
         {
-            text: '再戦する',
-            class: 'bg-green-600',
-            action: () => {
-                sendRematchRequest();
-            }
-        },
-        {
             text: '終了する',
             class: 'bg-gray-500',
             action: () => {
@@ -1648,6 +1793,13 @@ function showRematchPrompt(isWinner) {
                 sendData({ type: 'rematch-decline' });
                 // カウントダウン処理へ
                 startExitCountdown('ゲーム終了', '再戦は不成立となりました。ロビーに戻ります。');
+            }
+        },
+        {
+            text: '再戦する',
+            class: 'bg-green-600',
+            action: () => {
+                sendRematchRequest();
             }
         },
     ]);
@@ -1665,7 +1817,14 @@ function sendRematchRequest() {
         restartGame();
     } else {
         // 相手の応答待ち
-        showModal(modalTitle.textContent, '再戦の意思を相手に伝えました。相手の返答を待っています...', []);
+        showModal(modalTitle.textContent,
+            '再戦の意思を相手に伝えました。相手の返答を待っています...', [
+            {
+                text: 'キャンセル',
+                class: 'bg-blue-500',
+                action: exitToLobby
+            }
+        ]);
     }
 }
 
@@ -1762,6 +1921,7 @@ function restartGame() {
     // 再戦フラグをリセット
     rematchRequested = false;
     opponentRematchRequested = false;
+    gameResultSent = false;
 
     // ゲームUIをリセット
     myHand = [];
@@ -1787,6 +1947,9 @@ function restartGame() {
 function handleCardDrawRequest(index) {
     if (index < 0 || index >= myHand.length) {
         console.error("無効なドローリクエスト:", index, myHand.length);
+        showModal("エラー", "無効なドローリクエストです。", [
+            { text: '拝承', class: 'bg-blue-500', action: () => { hideModal(); exitToLobby(); } }
+        ]);
         return;
     }
 
@@ -1798,17 +1961,27 @@ function handleCardDrawRequest(index) {
         card: drawnCard
     });
 
-    // ドローを処理したので、自分のターンが始まる
+    if (opponentHandSize === 0) {
+        sendData({ type: 'you-win' }); // 相手が勝利したことを通知
+        showRematchPrompt(false); // 相手が勝ち
+        return;
+    }
+
+    // 相手がドローしたので、自分のターンが始まる
     myTurn = true;
 
     renderMyHand(); // 自分の手札を再描画
     sendHandSizeUpdate(); // 自分の手札サイズを相手に通知
 
+    console.log("handleCardDrawRequest", myHand.length)
     // 自分の手札が0枚になったかチェック
     if (myHand.length === 0) {
+        console.log("handleCardDrawRequest: you-lost");
         sendData({ type: 'you-lost' }); // 相手が敗北したことを通知
+        console.log("showRematchPrompt: true");
         showRematchPrompt(true); // 自分が勝ち
     } else {
+        console.log("handleCardDrawRequest: updateTurnStatus()");
         // ターン更新
         updateTurnStatus();
     }
@@ -1861,11 +2034,14 @@ function handleCardDrawn(card) {
     renderMyHand(); // 自分の手札を再描画
     sendHandSizeUpdate(); // 自分の手札サイズを相手に通知
 
+    console.log("handleCardDrawn", myHand.length)
     // 自分の手札が0枚になったかチェック
     if (myHand.length === 0) {
+        console.log("handleCardDrawn: you-lost");
         sendData({ type: 'you-lost' }); // 相手が敗北したことを通知
         showRematchPrompt(true); // 自分が勝ち
     } else {
+        console.log("handleCardDrawn: updateTurnStatus()");
         // ターン終了を相手に通知 (相手のmyTurnがtrueになる)
         updateTurnStatus();
     }
@@ -1950,16 +2126,16 @@ function renderOpponentHand() {
  */
 function updateTurnStatus(shouldSendUpdate = true) {
     if (myTurn) {
-        statusMessage.textContent = "貴殿のターン";
+        statusMessage.textContent = "貴殿のターン！";
         opponentHandContainer.classList.add('cursor-pointer');
     } else {
-        statusMessage.textContent = "相手のターン";
+        statusMessage.textContent = "相手のターン…";
         opponentHandContainer.classList.remove('cursor-pointer');
     }
     // 相手の手札を再描画 (クリック可/不可を反映)
     renderOpponentHand();
 
-    // 相手に現在の自分のターン状態を通知 (無限ループの原因だった箇所)
+    // 相手に現在の自分のターン状態を通知
     if (shouldSendUpdate) {
         sendData({ type: 'turn-update', myTurn: myTurn });
     }

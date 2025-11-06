@@ -21,15 +21,19 @@
 
         /* カードのスタイル */
         .card {
-            width: 80px;
-            height: 120px;
+            width: clamp(60px, 18vw, 100px);
+
+            aspect-ratio: 2 / 3;
+
             border: 2px solid #333;
             border-radius: 8px;
             background-color: white;
             display: flex;
             justify-content: center;
             align-items: center;
-            font-size: 1.5rem;
+
+            /* フォントサイズも clamp() でレスポンシブにします */
+            font-size: clamp(1.2rem, 4vw, 1.8rem);
             font-weight: bold;
             box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
             margin: 4px;
@@ -43,8 +47,7 @@
         }
 
         .card.joker {
-            font-size: 1.2rem;
-            /* JOKERは文字が多いため少し小さく */
+            font-size: clamp(1.0rem, 3.5vw, 1.5rem);
         }
 
         .card-back {
@@ -62,7 +65,6 @@
         /* 赤いカード（ダイヤとハート） */
         .card.red {
             color: #E53E3E;
-            /* red-600 */
         }
 
         /* モーダル */
@@ -72,13 +74,13 @@
     </style>
 </head>
 
-<body class="bg-green-100 text-gray-800 w-full" style="background-color: #004040;">
+<body class="text-gray-800 w-full" style="background-color: #004040;">
 
-    <div id="app" class="container min-h-screen mx-auto w-full">
+    <div id="app" class="container min-h-screen mx-auto md:mx-4 sm:mx-1 w-full">
 
         <!-- 画面 1: 名前入力 & 接続 -->
         <div id="setup-screen" class="p-6">
-            <h1 class="text-3xl font-bold mb-6 text-center text-white">ババ活 (P2P ババ抜き)</h1>
+            <h1 class="text-2xl font-bold mb-6 text-center text-white">ババ活 (P2P ババ抜き)</h1>
 
             <div class="mb-4">
                 <label for="name-input" class="block text-sm font-medium text-white mb-1">貴殿の名前:</label>
@@ -98,36 +100,53 @@
 
         <!-- 画面 2: ロビー -->
         <div id="lobby-screen" class="hidden p-6">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold text-white">ババ活 待合室</h2>
-                <p id="user-name" class="text-white text-right">名前: </p>
-                <button id="leave-lobby-btn"
-                    class="bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg shadow hover:bg-gray-500 transition duration-300">
-                    退出
-                </button>
+            <div class="md:flex md:justify-between lg:items-center mb-6">
+                <div class="flex justify-between items-center mb-4 md:mb-0">
+                    <h2 class="text-2xl font-bold text-white">ババ活待合室</h2>
+                    <!-- 低解像度用退出ボタン (mdで非表示) -->
+                    <button
+                        class="bg-gray-400 text-white font-semibold py-1 px-3 rounded-lg shadow hover:bg-gray-500 text-sm whitespace-nowrap md:hidden"
+                        onclick="leaveLobby();">
+                        退出
+                    </button>
+                </div>
+
+                <div class="md:flex md:items-center md:justify-end md:space-x-4">
+                    <p id="user-name" class="text-white text-left lg:text-base text-xs whitespace-nowrap">名前:
+                    </p>
+                    <!-- 高解像度用退出ボタン (md未満で非表示) -->
+                    <button
+                        class="hidden bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg shadow hover:bg-gray-500 whitespace-nowrap md:block"
+                        onclick="leaveLobby();">
+                        退出
+                    </button>
+                </div>
             </div>
-            <div class="grid grid-cols-2 gap-6">
+            <div class="md:grid md:grid-cols-2 md:gap-6">
                 <!-- 左カラム: プレイヤーリスト -->
                 <div>
-                    <p class="mb-4 text-white">ババ活したい相手を選んでください</p>
+                    <p class="mb-4 text-white">ババ活相手を選んでください</p>
+                    <p id="no-players-message" class="hidden font-semibold text-yellow-300 text-center my-2">
+                        待合室に誰もいません(^Д^)
+                    </p>
                     <div id="player-list" class="space-y-3">
                         <!-- プレイヤーリストがここに入る -->
-                        <p id="no-players-message" class="font-semibold text-yellow text-center">ロビーに誰もいません(^Д^)</p>
                     </div>
                 </div>
 
                 <!-- 右カラム: ロビーチャット -->
-                <div id="lobby-chat">
+                <div id="lobby-chat" class="md:border-none border-t border-gray-300 md:my-0 my-2">
                     <h3 class="text-xl font-semibold text-white mb-2">待合室チャット</h3>
                     <div id="chat-messages"
-                        class="bg-green-950 h-64 overflow-y-auto rounded-md p-3 mb-3 text-sm shadow-lg"></div>
-                    <div class="flex space-x-2">
+                        class="bg-green-950 h-64 overflow-y-auto rounded-md p-3 mb-3 text-sm shadow-lg">
+                    </div>
+                    <div class="flex justify-between items-center md:space-x-2 space-x-1">
                         <input id="chat-input" type="text" placeholder="メッセージを入力"
-                            class="flex-grow border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-green-500 focus:border-green-500">
+                            class="flex flex-grow border border-gray-300 rounded-md md:px-3 px-1 py-2 focus:outline-none focus:ring-green-500 focus:border-green-500">
                         <button id="chat-send-btn"
-                            class="bg-green-600 text-white font-bold px-4 py-2 rounded-md hover:bg-green-700 transition">投稿</button>
-                        <button id="chat-input-clear-btn"
-                            class="bg-green-800 text-white font-semibold px-4 py-2 rounded-lg shadow hover:bg-green-900 transition"
+                            class="flex flex-nowrap bg-green-600 text-white font-bold md:text-base text-xs md:px-4 px-1 py-2 rounded-md hover:bg-green-700 transition">投稿</button>
+                        <button id="flex chat-input-clear-btn"
+                            class="flex-nowrap bg-green-800 text-white font-semibold md:text-base text-xs md:px-4 px-1 py-2 rounded-lg shadow hover:bg-green-900 transition"
                             onclick="clearLobbyChatInput()">消す</button>
                     </div>
                 </div>
@@ -144,11 +163,11 @@
                 </button>
             </div>
 
-            <div class="grid grid-cols-2 gap-6">
+            <div class="md:grid md:grid-cols-2 gap-6">
                 <div>
                     <!-- 相手の手札 -->
                     <div class="mb-4 p-2 bg-green-800 rounded-lg shadow-lg">
-                        <h3 id="opponent-name" class="text-white text-lg font-semibold mb-2 text-center">敵</h3>
+                        <h3 id="opponent-name" class="text-white lg:text-lg font-semibold mb-2 text-center">敵</h3>
                         <div id="opponent-hand-container" class="flex flex-wrap justify-center min-h-[130px]">
                             <!-- 相手のカード（裏）がここに入る -->
                         </div>
@@ -156,13 +175,13 @@
 
                     <!-- 引いたカード情報 (自分のみ表示) -->
                     <div id="drawn-card-message"
-                        class="text-center text-yellow-300 text-lg font-semibold my-2 min-h-[25px]">
+                        class="text-center text-yellow-300 md:text-lg font-semibold my-2 min-h-[25px]">
                         <!-- 引いたカードのメッセージがここに入る -->
                     </div>
 
                     <!-- 自分の手札 -->
                     <div class="mt-4 p-2 bg-green-800 rounded-lg shadow-lg">
-                        <h3 id="my-name" class="text-white text-lg font-semibold mb-2 text-center">自分</h3>
+                        <h3 id="my-name" class="text-white md:text-lg font-semibold mb-2 text-center">自分</h3>
                         <div id="my-hand-container" class="flex flex-wrap justify-center min-h-[130px]">
                             <!-- 自分のカードがここに入る -->
                         </div>
@@ -172,22 +191,22 @@
                 <!-- 対戦部屋チャット -->
                 <div>
                     <div>
-                        <h3 class="text-lg font-semibold text-white mb-2">対戦部屋チャット</h3>
+                        <h3 class="md:text-lg font-semibold text-white mb-2">対戦部屋チャット</h3>
                         <div id="game-chat-messages"
                             class="bg-green-950 h-48 overflow-y-auto rounded-md p-3 mb-3 text-sm shadow-lg">
                         </div>
                         <div class="my-2 flex justify-center">
                             <button id="hage-reaction"
-                                class="bg-red-900 text-white font-bold mx-3 px-2 py-1 rounded-md hover:bg-red-950 active:bg-white active:text-red-950 transition"
+                                class="bg-red-900 text-white font-bold lg:text-base md:text-sm text-xs md:mx-3 mx-1 md:px-2 px-1 py-1 rounded-md hover:bg-red-950 active:bg-white active:text-red-950 transition"
                                 onclick="sendReaction('ヽ(;`Д´)ﾉ');">ヽ(;`Д´)ﾉ</button>
                             <button id="ase-reaction"
-                                class="bg-green-900 text-white font-bold mx-3 px-2 py-1 rounded-md hover:bg-green-950 active:bg-white active:text-green-950 transition"
+                                class="bg-green-900 text-white font-bold lg:text-base md:text-sm text-xs md:mx-3 mx-1 md:px-2 px-1 py-1 rounded-md hover:bg-green-950 active:bg-white active:text-green-950 transition"
                                 onclick="sendReaction('(;´Д`)');">(;´Д`)</button>
                             <button id="matari-reaction"
-                                class="bg-yellow-900 text-white font-bold mx-3 px-2 py-1 rounded-md hover:bg-yellow-950 active:bg-white active:text-yellow-950 transition"
+                                class="bg-yellow-900 text-white font-bold lg:text-base md:text-sm text-xs md:mx-3 mx-1 md:px-2 px-1 py-1 rounded-md hover:bg-yellow-950 active:bg-white active:text-yellow-950 transition"
                                 onclick="sendReaction('ヽ(´ー｀)ノ');">ヽ(´ー｀)ノ</button>
                             <button id="gyaha-reaction"
-                                class="bg-orange-900 text-white font-bold mx-3 px-2 py-1 rounded-md hover:bg-orange-950 active:bg-white active:text-orange-950 transition"
+                                class="bg-orange-900 text-white font-bold lg:text-base md:text-sm text-xs md:mx-3 mx-1 md:px-2 px-1 py-1 rounded-md hover:bg-orange-950 active:bg-white active:text-orange-950 transition"
                                 onclick="sendReaction('(^Д^)');">(^Д^)</button>
                         </div>
                         <div class="flex space-x-2">
@@ -207,8 +226,7 @@
                     </div>
                 </div>
                 <div id="emoticon-reaction-field"
-                    class="hidden fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white font-extrabold z-100"
-                    style="font-size: 50px;">
+                    class="hidden fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white font-extrabold z-100 whitespace-nowrap">
                 </div>
             </div>
         </div>
@@ -216,9 +234,9 @@
 
     <!-- モーダル (ダイアログ) -->
     <div id="modal-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center p-2">
-        <div id="modal-content" class="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full">
-            <h3 id="modal-title" class="text-2xl font-bold mb-4"></h3>
-            <p id="modal-body" class="text-gray-700 mb-6"></p>
+        <div id="modal-content" class="bg-white rounded-lg shadow-2xl md:p-6 p-2 md:max-w-md max-w-sm w-full">
+            <h3 id="modal-title" class="md:text-2xl text-lg text-black font-bold mb-4"></h3>
+            <p id="modal-body" class="text-gray-700 mb-6 md:text-base text-sm"></p>
             <div id="modal-buttons" class="flex justify-center space-x-3">
                 <!-- ボタンがここに入る -->
             </div>

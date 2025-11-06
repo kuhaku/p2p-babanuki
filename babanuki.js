@@ -37,8 +37,8 @@ let gameExitTimer = null;
 let gameResultSent = false;
 
 // 顔文字リアクション描画用
-const START_FONT_SIZE = 30; // 開始時のフォントサイズ (px)
-const MAX_FONT_SIZE = 300;  // 最大のフォントサイズ (px)
+const START_FONT_SIZE = 20; // 開始時のフォントサイズ (px)
+const MAX_FONT_SIZE = 250;  // 最大のフォントサイズ (px)
 const GROWTH_TATE = 2; // 1フレーム（更新ごと）に大きくなる量 (px)
 const ANIMATION_INTERVAL_TIME = 16; // アニメーションの更新間隔 (ms) - 約60fps相当
 
@@ -53,7 +53,7 @@ const RIGHT_EYES = ["`", "`", "`", "｀", "`､", "､`", "ﾟ", "､ﾟ", "^", 
 const RIGHT_HANDS = ["ノ", "ﾉ", "/", "へ", "ﾍ", "v", ">", "σ", "y-~~", "o", "c", "｢", "┘", "┌", "ʃ", "＿ﾋﾟｻﾞおまちっ！", "-☆", "ﾉ⌒💊", "ﾉ⌒㊙️", "ﾉ⌒♡", "ﾉ⌒💴", "ﾉ💴", "ﾉ🍺", "ﾉ🍣", "ﾉ🍖", "ﾉ👙", "ﾉ💩", "💕", "💦"]
 
 // HTML要素
-let setupScreen, lobbyScreen, gameScreen, joinLobbyBtn, leaveLobbyBtn, leaveGameBtn,
+let setupScreen, lobbyScreen, gameScreen, joinLobbyBtn, leaveGameBtn,
     nameInput, userNameEl, playerList, setupLoading, noPlayersMessage, myNameEl, opponentNameEl, statusMessage, drawnCardMessageEl, myHandContainer, opponentHandContainer,
     modalOverlay, modalContent, modalTitle, modalBody, modalButtons;
 
@@ -320,8 +320,6 @@ function showScreen(screenName) {
         lobbyScreen.classList.remove('hidden');
         // ロビーチャットメッセージ送信ボタン設定
         chatSendBtn.onclick = () => sendChatMessage();
-        // ロビー退出ボタン
-        leaveLobbyBtn.onclick = async () => leaveLobby();
         setupLobbyChat(); // ロビーチャットを開始
     } else if (screenName === 'game') {
         gameScreen.classList.remove('hidden');
@@ -655,7 +653,8 @@ async function initLobby(myName) {
  * @param {Object} presenceState - SupabaseのPresenceステート
  */
 function renderLobby(presenceState) {
-    playerList.innerHTML = ''; // リストをクリア (この時点で noPlayersMessage も消える)
+    playerList.innerHTML = ''; // リストをクリア
+    noPlayersMessage.classList.add('hidden');
     let playerCount = 0;
 
     for (const key in presenceState) {
@@ -683,23 +682,22 @@ function renderLobby(presenceState) {
 
             const playerName = document.createElement('span');
             playerName.textContent = presence.name;
-            playerName.className = 'font-semibold text-lg text-gray-700';
+            playerName.className = 'font-semibold md:text-lg text-sm text-gray-700';
             playerNameContainer.appendChild(playerName);
-
-            const isOpponentInGame = presence.status === 'gaming' || false; // 対戦中かどうか
 
             let button;
 
-            if (isOpponentInGame) {
+            if (presence.user_status === 'gaming') {
                 // 対戦中の場合
                 button = document.createElement('button');
                 button.textContent = `対戦中`;
-                button.className = 'bg-gray-400 text-white font-bold py-1 px-4 rounded-md shadow transition duration-300 cursor-pointer';
+                button.className = 'bg-gray-400 text-white font-bold md:text-base text-xs py-1 md:px-4 px-2 rounded-md shadow transition duration-300 cursor-pointer';
+                button.disabled = "disabled";
             } else {
                 // 対戦可能の場合
                 button = document.createElement('button');
                 button.textContent = '果たし状';
-                button.className = 'bg-green-600 text-white font-bold py-1 px-4 rounded-md shadow hover:bg-green-700 transition duration-300';
+                button.className = 'bg-green-600 text-white font-bold md:text-base text-xs py-1 md:px-4 px-2 rounded-md shadow hover:bg-green-700 transition duration-300';
                 button.onclick = () => inviteToGame(presence.user_id, presence.name);
             }
 
@@ -709,9 +707,9 @@ function renderLobby(presenceState) {
         }
     }
 
-    // プレイヤーリストが空の場合のみ、メッセージを再挿入する
+    // プレイヤーリストが空の場合
     if (playerCount === 0) {
-        playerList.innerHTML = '<p id="no-players-message" class="font-semibold text-yellow-300 text-center">ロビーに誰もいません(^Д^)</p>';
+        noPlayersMessage.classList.remove('hidden');
     }
 }
 
@@ -845,8 +843,10 @@ function inviteToGame(targetUserId, targetName) {
         senderName: myName
     });
 
-    userStatus = 'busy';
-    updateMyPresence();
+    if (userStatus !== 'busy') {
+        userStatus = 'busy';
+        updateMyPresence();
+    }
 }
 
 // 6.2 招待受信 (ゲスト)
@@ -873,8 +873,10 @@ function handleInvite(payload) {
         { text: '許可', class: 'bg-green-600', action: acceptInvite }
     ]);
 
-    userStatus = 'busy';
-    updateMyPresence();
+    if (userStatus !== 'busy') {
+        userStatus = 'busy';
+        updateMyPresence();
+    }
 }
 
 /**
@@ -927,8 +929,10 @@ function acceptInvite() {
         senderName: myName
     });
 
-    userStatus = 'gaming';
-    updateMyPresence();
+    if (userStatus !== 'gaming') {
+        userStatus = 'gaming';
+        updateMyPresence();
+    }
 
     // ゲーム画面に遷移
     showScreen('game');
@@ -947,8 +951,10 @@ function handleAccept(payload) {
     // ロビーチャットに通知
     sendLobbyNotification(`${myName} と ${opponentName} の対戦開始`);
 
-    userStatus = 'gaming';
-    updateMyPresence();
+    if (userStatus !== 'gaming') {
+        userStatus = 'gaming';
+        updateMyPresence();
+    }
 
     // ゲーム画面に遷移
     showScreen('game');
@@ -1986,7 +1992,6 @@ function initializeDOMElements() {
     lobbyScreen = document.getElementById('lobby-screen');
     gameScreen = document.getElementById('game-screen');
     joinLobbyBtn = document.getElementById('join-lobby-btn');
-    leaveLobbyBtn = document.getElementById('leave-lobby-btn');
     leaveGameBtn = document.getElementById('leave-game-btn');
     nameInput = document.getElementById('name-input');
     playerList = document.getElementById('player-list');

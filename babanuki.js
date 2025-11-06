@@ -38,7 +38,7 @@ let gameResultSent = false;
 
 // 顔文字リアクション描画用
 const START_FONT_SIZE = 30; // 開始時のフォントサイズ (px)
-const MAX_FONT_SIZE = 340;  // 最大のフォントサイズ (px)
+const MAX_FONT_SIZE = 300;  // 最大のフォントサイズ (px)
 const GROWTH_TATE = 2; // 1フレーム（更新ごと）に大きくなる量 (px)
 const ANIMATION_INTERVAL_TIME = 16; // アニメーションの更新間隔 (ms) - 約60fps相当
 

@@ -869,8 +869,8 @@ function handleInvite(payload) {
     playInviteSound();
 
     showModal('挑戦者現る！', `${opponentName}から対戦リクエストがきました`, [
+        { text: '許可', class: 'bg-green-600', action: acceptInvite },
         { text: '拒否', class: 'bg-red-500', action: () => rejectInvite(payload.senderUserId) },
-        { text: '許可', class: 'bg-green-600', action: acceptInvite }
     ]);
 
     if (userStatus !== 'busy') {
@@ -1018,13 +1018,13 @@ function handleIceCandidate(payload) {
 function leaveGame() {
     // キュー破棄の確認
     showModal('確認', '本当にゲームを終了しますか？', [
-        { text: 'キャンセル', class: 'bg-gray-500', action: hideModal },
         {
             text: '終了する', class: 'bg-red-600', action: () => {
                 // 終了を選択した場合、即座にロビーに戻る
                 exitToLobby();
             }
-        }
+        },
+        { text: 'キャンセル', class: 'bg-gray-500', action: hideModal },
     ]);
 };
 
@@ -1634,6 +1634,13 @@ function showRematchPrompt(isWinner) {
 
     showModal(title, body, [
         {
+            text: '再戦する',
+            class: 'bg-green-600',
+            action: () => {
+                sendRematchRequest();
+            }
+        },
+        {
             text: '終了する',
             class: 'bg-gray-500',
             action: () => {
@@ -1643,13 +1650,6 @@ function showRematchPrompt(isWinner) {
                 startExitCountdown('ゲーム終了', '再戦は不成立となりました。ロビーに戻ります。');
             }
         },
-        {
-            text: '再戦する',
-            class: 'bg-green-600',
-            action: () => {
-                sendRematchRequest();
-            }
-        }
     ]);
 }
 

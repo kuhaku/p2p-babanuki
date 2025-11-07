@@ -725,6 +725,12 @@ function gyouzaNoOhSho() {
             break;
         case 5:
             sendChatMessage('餃');
+            let idPrefixes = ['oh', 'no', 'za', 'gyou'];
+            idPrefixes.forEach(idPrefix => {
+                let button = document.getElementById(`${idPrefix}-button`);
+                button.classList.add("hidden");
+            });
+            ohshoCounter = 0;
             break;
         default:
             ohshoCounter = 0;
@@ -1506,8 +1512,6 @@ function appendGameChatMessage(sender, message, timestamp, isSelf = false) {
     const el = document.createElement('div');
     el.className = 'text-left text-white mb-1';
     t = formatTimestamp(new Date(timestamp || Date.now()));
-    // const d = new Date(timestamp || Date.now());
-    // const t = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
     const timeHTML = `<span class='text-xs text-gray-500 ml-2'>${t}</span>`;
     el.innerHTML = isSelf
         ? `<span class='font-semibold text-yellow-300'>${escapedSender}</span>: ${message}${timeHTML}`

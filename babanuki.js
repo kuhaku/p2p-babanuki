@@ -41,6 +41,9 @@ let gameResultSent = false;
 // 餃子の王将
 let ohshoCounter = 0;
 
+// 暇つぶし用画像
+const GIF_ANIMES = ["misao003452.gif", "misao012134.gif", "misao056051.gif", "tanosi.gif", "tanosi2.gif"]
+
 // 顔文字リアクション描画用
 const START_FONT_SIZE = 20; // 開始時のフォントサイズ (px)
 const MAX_FONT_SIZE = 250;  // 最大のフォントサイズ (px)
@@ -59,7 +62,8 @@ const RIGHT_HANDS = ["ノ", "ﾉ", "/", "へ", "ﾍ", "v", ">", "σ", "y-~~", "o
 
 // HTML要素
 let setupScreen, lobbyScreen, gameScreen, joinLobbyBtn, leaveGameBtn,
-    nameInput, userNameEl, playerList, setupLoading, noPlayersMessage, myNameEl, opponentNameEl, statusMessage, drawnCardMessageEl, myHandContainer, opponentHandContainer,
+    nameInput, userNameEl, playerList, setupLoading, noPlayersMessage, noPlayersImage,
+    myNameEl, opponentNameEl, statusMessage, drawnCardMessageEl, myHandContainer, opponentHandContainer,
     modalOverlay, modalContent, modalTitle, modalBody, modalButtons;
 
 // 接続用
@@ -467,15 +471,6 @@ function showModal(title, body, buttons = []) {
     modalBody.textContent = body;
     modalButtons.innerHTML = ''; // ボタンをクリア
 
-    // if (buttons.length === 0) {
-    //     // デフォルトのOKボタン
-    //     buttons.push({
-    //         text: 'はい',
-    //         class: 'bg-blue-500',
-    //         action: hideModal
-    //     });
-    // }
-
     buttons.forEach(btnInfo => {
         const button = document.createElement('button');
         button.textContent = btnInfo.text;
@@ -866,6 +861,8 @@ function renderLobby(presenceState) {
 
     playerList.innerHTML = ''; // リストをクリア
     noPlayersMessage.classList.add('hidden');
+    noPlayersImage.classList.add('hidden');
+
     let playerCount = 0;
 
     for (const key in presenceState) {
@@ -921,6 +918,9 @@ function renderLobby(presenceState) {
     // プレイヤーリストが空の場合
     if (playerCount === 0) {
         noPlayersMessage.classList.remove('hidden');
+        imageFileName = GIF_ANIMES[Math.floor(Math.random() * GIF_ANIMES.length)];
+        noPlayersImage.innerHTML = `<img src="img/${imageFileName}">`;
+        noPlayersImage.classList.remove('hidden');
     }
 }
 
@@ -2274,6 +2274,7 @@ function initializeDOMElements() {
     userNameEl = document.getElementById('user-name');
     setupLoading = document.getElementById('setup-loading');
     noPlayersMessage = document.getElementById('no-players-message');
+    noPlayersImage = document.getElementById('no-players-image');
     myNameEl = document.getElementById('my-name');
     opponentNameEl = document.getElementById('opponent-name');
     statusMessage = document.getElementById('status-message');

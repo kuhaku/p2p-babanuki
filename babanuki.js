@@ -1790,9 +1790,11 @@ function initializeGame() {
     if (guestStarts) {
         updateTurnStatus(false);
         statusMessage.textContent = "相手のターン…";
+        statusMessage.classList.add('animate-pulse');
     } else {
         updateTurnStatus(true);
         statusMessage.textContent = "貴殿のターン！";
+        statusMessage.classList.remove('animate-pulse');
     }
     drawnCardMessageEl.textContent = ''; // メッセージクリア
 }
@@ -2156,9 +2158,11 @@ function renderOpponentHand() {
 function updateTurnStatus(shouldSendUpdate = true) {
     if (myTurn) {
         statusMessage.textContent = "貴殿のターン！";
+        statusMessage.classList.remove('animate-pulse');
         opponentHandContainer.classList.add('cursor-pointer');
     } else {
         statusMessage.textContent = "相手のターン…";
+        statusMessage.classList.add('animate-pulse');
         opponentHandContainer.classList.remove('cursor-pointer');
     }
     // 相手の手札を再描画 (クリック可/不可を反映)

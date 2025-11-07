@@ -107,7 +107,20 @@ function playJoinSound() {
         synth.triggerAttackRelease("E5", "8n", now);
         synth.triggerAttackRelease("C5", "4n", now + 0.3);
     } catch (e) {
-        console.error("playClickSound error:", e);
+        console.error("playJoinSound error:", e);
+    }
+}
+
+/**
+ * 新着チャット受信音
+ */
+function playChatNotificationSound() {
+    if (!synth) return;
+    try {
+        const now = Tone.now();
+        synth.triggerAttackRelease("D4", "8n", now);
+    } catch (e) {
+        console.error("playChatNotificationSound error:", e);
     }
 }
 
@@ -394,10 +407,10 @@ async function initializeSupabase() {
 // ロビーチャットチャンネルを初期化
 async function setupLobbyChat() {
     if (!supabase) return;
-    if (chatChannel) {
-        await chatChannel.unsubscribe();
-        chatChannel = null;
-    }
+    // if (chatChannel) {
+    //     await chatChannel.unsubscribe();
+    //     chatChannel = null;
+    // }
 
     chatChannel = supabase.channel('babanuki-lobby-chat');
 
@@ -671,6 +684,9 @@ function appendLobbyChatMessage(sender, message, timestamp, isSelf = false) {
         msgEl.innerHTML = isSelf
             ? `<span class='font-semibold text-yellow-300'>${escapedSender}</span>: ${escapedMessage}${timeHTML}`
             : `<span class='font-semibold text-white'>${escapedSender}</span>: ${escapedMessage}${timeHTML}`;
+    }
+    if (!isSelf) {
+        playChatNotificationSound();  // 自分の投稿でなければ通知を鳴らす
     }
 
     lobbyContainer.insertBefore(msgEl, lobbyContainer.firstChild);

@@ -769,7 +769,6 @@ async function initLobby(myName) {
         return; // 失敗したらロビー参加を中断
     }
 
-    // 既にロビーチャンネルが存在する場合は、まず解除する
     if (lobbyChannel) {
         if (lobbyChannel.state === 'joined') {
             showScreen('lobby'); // 画面だけ表示
@@ -792,16 +791,11 @@ async function initLobby(myName) {
         const newState = lobbyChannel.presenceState();
         showActiveLobbyUsersInGame(newState)  // 対戦中画面
         renderLobby(newState);  // ロビー画面
-        notifyOfflinePlayers(newState);
+        notifyPlayerChanges(newState);
     });
     // 誰かが参加した時
     lobbyChannel.on('presence', { event: 'join' }, ({ key, newPresences }) => {
-        if (newPresences && newPresences.length > 0 && newPresences[0].name && newPresences[0].user_id !== userId &&
-            newPresences[0].user_status === 'init') {
-            // playJoinSound();
-            sendLobbyNotification(`${newPresences[0].name} が入室しました`);
-        }
-        // syncイベントが直後に発火するので、ここでは描画しない（二重描画防止）
+        // ハンドリングが難しいのでここで処理しない
     });
     // 誰かが退出した時
     lobbyChannel.on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
@@ -827,27 +821,37 @@ async function initLobby(myName) {
 };
 
 /**
- * 去る者を告げる関数
+ * 来る者去る者を告げる関数
  * @param {Object} presenceState - SupabaseのPresenceステート
  */
-function notifyOfflinePlayers(presenceState) {
+function notifyPlayerChanges(presenceState) {
     currentOnlinePlayers = new Set();
     for (const key in presenceState) {
         const presences = presenceState[key];
 
         if (presences && presences.length > 0) {
             const presence = presences[0];
-
-            if (!presence.name || !presence.user_id) {
-                console.warn("不完全なPresenceデータが検出されました:", presence);
-                continue; // 無効なデータはスキップ
-            }
-            currentOnlinePlayers.add(presence);
+            currentOnlinePlayers.add(`${presence.user_id}\t${presence.name}`);
         }
     }
-    onlinePlayers.difference(currentOnlinePlayers).forEach(presence => {
-        sendLobbyNotification(`${presence.name} が退出しました`);
-    });
+
+    if (onlinePlayers.size > 0) {
+        let nameOfChangedUser = '';
+
+        currentOnlinePlayers.forEach(user => {
+            if (!onlinePlayers.has(user)) {
+                nameOfChangedUser = user.split("\t")[1];
+                sendLobbyNotification(`${nameOfChangedUser} が入室しました`);
+            }
+        });
+
+        onlinePlayers.forEach(user => {
+            if (!currentOnlinePlayers.has(user)) {
+                nameOfChangedUser = user.split("\t")[1];
+                sendLobbyNotification(`${nameOfChangedUser} が退出しました`);
+            }
+        });
+    }
     onlinePlayers = currentOnlinePlayers;
 }
 

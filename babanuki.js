@@ -38,6 +38,9 @@ let gameExitTimer = null;
 // ゲーム結果送信フラグ
 let gameResultSent = false;
 
+// 餃子の王将
+let ohshoCounter = 0;
+
 // 顔文字リアクション描画用
 const START_FONT_SIZE = 20; // 開始時のフォントサイズ (px)
 const MAX_FONT_SIZE = 250;  // 最大のフォントサイズ (px)
@@ -631,9 +634,11 @@ function sendLobbyNotification(message) {
 }
 
 // ロビーチャット送信
-function sendChatMessage() {
+function sendChatMessage(msg = '') {
     input = chatInputEl
-    const msg = input.value.trim();
+    if (!msg) {
+        msg = input.value.trim();
+    }
     if (!msg || !chatChannel) return;
 
     const ts = Date.now();
@@ -695,6 +700,41 @@ function appendLobbyChatMessage(sender, message, timestamp, isSelf = false) {
 // ロビーチャットの投稿消すボタン
 function clearLobbyChatInput() {
     chatInputEl.value = '';
+}
+
+/**
+ * 餃子の王将
+ */
+function gyouzaNoOhSho() {
+    ohshoCounter += 1;
+    switch (ohshoCounter) {
+        case 1:
+            sendChatMessage('将');
+            button = document.getElementById("oh-button");
+            button.classList.remove("hidden");
+            break;
+        case 2:
+            sendChatMessage('王');
+            button = document.getElementById("no-button");
+            button.classList.remove("hidden");
+            break;
+        case 3:
+            sendChatMessage('の');
+            button = document.getElementById("za-button");
+            button.classList.remove("hidden");
+            break;
+        case 4:
+            sendChatMessage('子');
+            button = document.getElementById("gyou-button");
+            button.classList.remove("hidden");
+            break;
+        case 5:
+            sendChatMessage('餃');
+            break;
+        default:
+            ohshoCounter = 0;
+            break;
+    }
 }
 
 async function initLobby(myName) {

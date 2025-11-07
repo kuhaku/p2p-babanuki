@@ -650,7 +650,7 @@ function sendChatMessage(msg = '', sound = true, voice = '') {
 
     if (sound) playChatNotificationSound();  // チャット送信音を鳴らす
 
-    if (voice) speakText(voice);
+    if (voice) speakText(voice);  // 音声合成で読み上げる
 
     input.value = '';
 }
@@ -1049,6 +1049,7 @@ function exitToLobby() {
 // 6.1 招待 (ホスト -> ゲスト)
 function inviteToGame(targetUserId, targetName) {
     opponentUserId = targetUserId;
+    opponentName = targetName;
     isHost = true;
 
     sendSignal({
@@ -1103,6 +1104,8 @@ function handleInvite(payload) {
         return;
     }
 
+    opponentUserId = payload.senderUserId;
+    opponentName = payload.senderName;
     isHost = false;
     if (userStatus !== 'busy') {
         userStatus = 'busy';
@@ -1152,7 +1155,7 @@ function handleReject(payload) {
 
     const reasonText = payload.reason === 'busy' ? '相手は現在取り込み中です。' : '相手に拒否されました。';
     showModal('招待失敗', reasonText, [
-        { text: '拝承', class: 'bg-blue-500', action: hideModal }
+        { text: '拝承', class: 'bg-gray-500', action: hideModal }
     ]);
 }
 
@@ -1174,7 +1177,7 @@ function handleInviteCancel(payload) {
 
         // 招待モーダルを閉じて、キャンセル通知モーダルを表示
         showModal('招待キャンセル', `${opponentName} が招待をブッチしました`, [
-            { text: '拝承', class: 'bg-blue-500', action: hideModal }
+            { text: '拝承', class: 'bg-gray-500', action: hideModal }
         ]);
     }
 }
@@ -1204,6 +1207,10 @@ function acceptInvite() {
 // 6.6 招待承認の受信 (ホスト)
 function handleAccept(payload) {
     hideModal(); // 「招待中」モーダルを閉じる
+
+    // 招待を承認してきた相手の情報をペイロードから正しく設定する
+    opponentUserId = payload.senderUserId;
+    opponentName = payload.senderName;
 
     setupPeerConnection(); // ホスト側
 

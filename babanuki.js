@@ -985,6 +985,9 @@ async function setupSignalChannel() {
             case 'reject':
                 handleReject(payload);
                 break;
+            case 'invite-cancel':
+                handleInviteCancel(payload);
+                break;
             case 'hangup':
                 handleHangup();
                 break;
@@ -1046,12 +1049,7 @@ function exitToLobby() {
 // 6.1 招待 (ホスト -> ゲスト)
 function inviteToGame(targetUserId, targetName) {
     opponentUserId = targetUserId;
-    opponentName = targetName;
     isHost = true;
-
-    showModal('招待中', `${targetName} をババ活に誘ってます……`, [
-        { text: 'キャンセル', class: 'bg-gray-500', action: hideModal } // TODO: キャンセル機能
-    ]);
 
     sendSignal({
         type: 'invite',
@@ -1064,6 +1062,33 @@ function inviteToGame(targetUserId, targetName) {
         userStatus = 'busy';
         updateMyPresence();
     }
+
+    showModal('招待中', `${targetName} をババ活に誘ってます……`, [
+        { text: 'やっぱやめる', class: 'bg-gray-500', action: cancelInvite }
+    ]);
+}
+
+/**
+ * 招待したけどやっぱキャンセル
+ * (ホストがゲストを誘っておきながらホスト側都合でキャンセル)
+ */
+function cancelInvite() {
+    if (!opponentUserId) return;
+
+    // ゲストにキャンセルシグナルを送信
+    sendSignal({
+        type: 'invite-cancel',
+        targetUserId: opponentUserId, // ゲスト宛て
+        senderUserId: userId
+    });
+
+    // 自分の状態をリセット
+    if (userStatus !== 'free') {
+        userStatus = "free";
+        updateMyPresence();
+    }
+    hideModal();
+    resetGameVariables();
 }
 
 // 6.2 招待受信 (ゲスト)
@@ -1078,22 +1103,19 @@ function handleInvite(payload) {
         return;
     }
 
-    opponentUserId = payload.senderUserId;
-    opponentName = payload.senderName;
     isHost = false;
-
-    // 招待受信音を鳴らす
-    playInviteSound();
-
-    showModal('挑戦者現る！', `${opponentName}からババ活のお誘いがきました`, [
-        { text: '拒否', class: 'bg-red-500', action: () => rejectInvite(payload.senderUserId) },
-        { text: '許可', class: 'bg-green-600', action: acceptInvite },
-    ]);
-
     if (userStatus !== 'busy') {
         userStatus = 'busy';
         updateMyPresence();
     }
+
+    // 招待受信音を鳴らす
+    playInviteSound();
+
+    showModal('挑戦者現る！', `${payload.senderName}からババ活のお誘いがきました`, [
+        { text: '拒否', class: 'bg-red-500', action: () => rejectInvite(payload.senderUserId) },
+        { text: '許可', class: 'bg-green-600', action: acceptInvite },
+    ]);
 }
 
 /**
@@ -1101,8 +1123,6 @@ function handleInvite(payload) {
  * @param {string} targetUserId - ホストのユーザーID
  */
 function rejectInvite(targetUserId) {
-    hideModal();
-
     // ホストに拒否シグナルを送信
     sendSignal({
         type: 'reject',
@@ -1117,20 +1137,45 @@ function rejectInvite(targetUserId) {
     }
     resetGameVariables();
 
+    hideModal();
     // ロビー画面に戻る
     showScreen('lobby');
 }
 
 // 6.4 ホストが招待拒否を受信したとき
 function handleReject(payload) {
-    const reasonText = payload.reason === 'busy' ? '相手は現在取り込み中です。' : '相手に拒否されました。';
-    showModal('招待失敗', reasonText, [
-        { text: '拝承', class: 'bg-blue-500', action: hideModal }
-    ]);
     resetGameVariables();
     if (userStatus !== 'free') {
         userStatus = "free";
         updateMyPresence();
+    }
+
+    const reasonText = payload.reason === 'busy' ? '相手は現在取り込み中です。' : '相手に拒否されました。';
+    showModal('招待失敗', reasonText, [
+        { text: '拝承', class: 'bg-blue-500', action: hideModal }
+    ]);
+}
+
+/**
+ * ゲストが招待キャンセルを受信したとき
+ */
+function handleInviteCancel(payload) {
+    if (modalOverlay.classList.contains('hidden') === false) {
+        hideModal();
+    }
+    // 自分が招待を受けて 'busy' 状態であり、まだゲームが始まっていない（peerConnectionがない）場合のみ処理
+    if (userStatus === 'busy' && !peerConnection && opponentUserId === payload.senderUserId) {
+        // 自分の状態をリセット
+        resetGameVariables();
+        if (userStatus !== 'free') {
+            userStatus = "free";
+            updateMyPresence();
+        }
+
+        // 招待モーダルを閉じて、キャンセル通知モーダルを表示
+        showModal('招待キャンセル', `${opponentName} が招待をブッチしました`, [
+            { text: '拝承', class: 'bg-blue-500', action: hideModal }
+        ]);
     }
 }
 

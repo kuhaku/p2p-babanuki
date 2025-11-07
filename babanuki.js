@@ -21,6 +21,7 @@ let chatChannel;
 let chatMessagesEl, chatInputEl, chatSendBtn;
 let previousLobbyChatMsgId = '';
 let previousLocalLobbyChatMsgId = '';
+let onlinePlayers = new Set();
 
 // 対戦者チャット
 let gameChatChannel, gameChatMessages, gameChatInput, gameChatSend;
@@ -74,6 +75,13 @@ const configuration = {
 const SUITS = ['♥', '♦', '♠', '♣'];
 const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
 const JOKER = { suit: 'JOKER', rank: 'JOKER', display: 'JOKER', color: 'black' };
+
+
+function escapeChar(str) {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&#60;').replace(/>/g, '&#62;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&apos;').replace(/\//g, '&#x2F;')
+        .replace(/=/g, '&#x3D;').replace(/\+/g, '&#x2B;').replace(/\?/g, '&#x3F;');
+}
 
 // --- サウンドエンジン ---
 let synth; // シンセサイザー (Tone.js)
@@ -302,7 +310,7 @@ function speakText(text, rate = 1.0, pitch = 1.0) {
         speechMsg.pitch = pitch; // ピッチ (デフォルト)
 
         speechMsg.onend = () => {
-            console.log(text);
+            console.log('音声合成:', text);
         };
 
         speechSynthesis.speak(speechMsg);
@@ -386,10 +394,10 @@ async function initializeSupabase() {
 // ロビーチャットチャンネルを初期化
 async function setupLobbyChat() {
     if (!supabase) return;
-    // if (chatChannel) {
-    //     await chatChannel.unsubscribe();
-    //     chatChannel = null;
-    // }
+    if (chatChannel) {
+        await chatChannel.unsubscribe();
+        chatChannel = null;
+    }
 
     chatChannel = supabase.channel('babanuki-lobby-chat');
 
@@ -654,12 +662,15 @@ function appendLobbyChatMessage(sender, message, timestamp, isSelf = false) {
     const tsText = formatTimestamp(timestamp);
     const timeHTML = `<span class='text-xs text-gray-300 ml-2'>${tsText}</span>`;
 
+    const escapedSender = escapeChar(sender);
+    const escapedMessage = escapeChar(message);
+
     if (sender === SYSTEM_USER_NAME) {
-        msgEl.innerHTML = `<span class='font-semibold text-green-100'>${sender}</span>: ${message}${timeHTML}`;
+        msgEl.innerHTML = `<span class='font-semibold text-green-100'>${escapedSender}</span>: ${escapedMessage}${timeHTML}`;
     } else {
         msgEl.innerHTML = isSelf
-            ? `<span class='font-semibold text-yellow-300'>${sender}</span>: ${message}${timeHTML}`
-            : `<span class='font-semibold text-white'>${sender}</span>: ${message}${timeHTML}`;
+            ? `<span class='font-semibold text-yellow-300'>${escapedSender}</span>: ${escapedMessage}${timeHTML}`
+            : `<span class='font-semibold text-white'>${escapedSender}</span>: ${escapedMessage}${timeHTML}`;
     }
 
     lobbyContainer.insertBefore(msgEl, lobbyContainer.firstChild);
@@ -682,7 +693,7 @@ async function initLobby(myName) {
         setTimeout(loadJapVoice, 100);
     }
 
-    userNameEl.innerHTML = `名前: ${myName}`;
+    userNameEl.innerHTML = `名前: ${escapeChar(myName)}`;
 
     // Supabaseクライアントの初期化
     const success = await initializeSupabase();
@@ -729,25 +740,20 @@ async function initLobby(myName) {
         const newState = lobbyChannel.presenceState();
         showActiveLobbyUsersInGame(newState)  // 対戦中画面
         renderLobby(newState);  // ロビー画面
+        notifyOfflinePlayers(newState);
     });
     // 誰かが参加した時
     lobbyChannel.on('presence', { event: 'join' }, ({ key, newPresences }) => {
         if (newPresences && newPresences.length > 0 && newPresences[0].name && newPresences[0].user_id !== userId &&
             newPresences[0].user_status === 'init') {
-            playJoinSound();
+            // playJoinSound();
             sendLobbyNotification(`${newPresences[0].name} が入室しました`);
         }
         // syncイベントが直後に発火するので、ここでは描画しない（二重描画防止）
     });
     // 誰かが退出した時
     lobbyChannel.on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-
-        if (leftPresences && leftPresences.length > 0 && leftPresences[0].name && leftPresences[0].user_id !== userId) {
-            if (leftPresences[0].user_status === 'free') {
-                sendLobbyNotification(`${leftPresences[0].name} が退出しました`);
-            }
-        }
-        // syncイベントが直後に発火するので、ここでは描画しない
+        // ハンドリングが難しいのでここで処理しない
     });
 
     // チャンネルの購読を開始
@@ -767,6 +773,31 @@ async function initLobby(myName) {
         }
     });
 };
+
+/**
+ * 去る者を告げる関数
+ * @param {Object} presenceState - SupabaseのPresenceステート
+ */
+function notifyOfflinePlayers(presenceState) {
+    currentOnlinePlayers = new Set();
+    for (const key in presenceState) {
+        const presences = presenceState[key];
+
+        if (presences && presences.length > 0) {
+            const presence = presences[0];
+
+            if (!presence.name || !presence.user_id) {
+                console.warn("不完全なPresenceデータが検出されました:", presence);
+                continue; // 無効なデータはスキップ
+            }
+            currentOnlinePlayers.add(presence);
+        }
+    }
+    onlinePlayers.difference(currentOnlinePlayers).forEach(presence => {
+        sendLobbyNotification(`${presence.name} が退出しました`);
+    });
+    onlinePlayers = currentOnlinePlayers;
+}
 
 /**
  * ロビーのプレイヤー一覧を描画
@@ -991,7 +1022,7 @@ function handleInvite(payload) {
     // 招待受信音を鳴らす
     playInviteSound();
 
-    showModal('挑戦者現る！', `${opponentName}から対戦リクエストがきました`, [
+    showModal('挑戦者現る！', `${opponentName}からババ活のお誘いがきました`, [
         { text: '拒否', class: 'bg-red-500', action: () => rejectInvite(payload.senderUserId) },
         { text: '許可', class: 'bg-green-600', action: acceptInvite },
     ]);
@@ -1021,7 +1052,7 @@ function rejectInvite(targetUserId) {
         userStatus = "free";
         updateMyPresence();
     }
-    // resetGameVariables();
+    resetGameVariables();
 
     // ロビー画面に戻る
     showScreen('lobby');
@@ -1405,12 +1436,9 @@ async function createRoomAndShare() {
 function initGameChatElements() {
     gameChatMessages = document.getElementById('game-chat-messages');
     gameChatInput = document.getElementById('game-chat-input');
-    gameChatSend = document.getElementById('game-chat-send');
-
 
     if (gameChatSend && !gameChatSend.__listenerAdded) {
         gameChatSend.__listenerAdded = true;
-        gameChatSend.addEventListener('click', sendGameChatMessage);
     }
 }
 
@@ -1422,14 +1450,22 @@ function clearGameChatInput() {
 
 // 対戦部屋チャットメッセージを画面に表示
 function appendGameChatMessage(sender, message, timestamp, isSelf = false) {
+    if (typeof message === 'string') {
+        message = escapeChar(message);
+    } else {
+        message = JSON.stringify(message);
+    }
+    const escapedSender = escapeChar(sender);
+
     const el = document.createElement('div');
     el.className = 'text-left text-white mb-1';
-    const d = new Date(timestamp || Date.now());
-    const t = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+    t = formatTimestamp(new Date(timestamp || Date.now()));
+    // const d = new Date(timestamp || Date.now());
+    // const t = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
     const timeHTML = `<span class='text-xs text-gray-500 ml-2'>${t}</span>`;
     el.innerHTML = isSelf
-        ? `<span class='font-semibold text-yellow-300'>${sender}</span>: ${message}${timeHTML}`
-        : `<span class='font-semibold text-white'>${sender}</span>: ${message}${timeHTML}`;
+        ? `<span class='font-semibold text-yellow-300'>${escapedSender}</span>: ${message}${timeHTML}`
+        : `<span class='font-semibold text-white'>${escapedSender}</span>: ${message}${timeHTML}`;
     gameChatMessages.insertBefore(el, gameChatMessages.firstChild);
 }
 
@@ -1460,6 +1496,7 @@ async function setupGameChat(roomId) {
 // 対戦部屋チャットにメッセージ送信
 function sendGameChatMessage(msg = null) {
     if (msg === null) {
+        gameChatInput = document.getElementById('game-chat-input');
         msg = gameChatInput.value.trim();
         if (msg) {
             // チャット送信音を鳴らす
@@ -1585,8 +1622,8 @@ function sendReaction(text) {
  * ゲーム画面の初期UI設定
  */
 function setupGameUI() {
-    myNameEl.textContent = `${myName} (貴殿)`;
-    opponentNameEl.textContent = `${opponentName} (敵)`;
+    myNameEl.innerText = `${myName} (貴殿)`;
+    opponentNameEl.innerText = `${opponentName} (敵)`;
     myHandContainer.innerHTML = '';
     opponentHandContainer.innerHTML = '';
     drawnCardMessageEl.textContent = ''; // メッセージクリア
@@ -1956,15 +1993,11 @@ function handleCardDrawRequest(index) {
     renderMyHand(); // 自分の手札を再描画
     sendHandSizeUpdate(); // 自分の手札サイズを相手に通知
 
-    console.log("handleCardDrawRequest", myHand.length)
     // 自分の手札が0枚になったかチェック
     if (myHand.length === 0) {
-        console.log("handleCardDrawRequest: you-lost");
         sendData({ type: 'you-lost' }); // 相手が敗北したことを通知
-        console.log("showRematchPrompt: true");
         showRematchPrompt(true); // 自分が勝ち
     } else {
-        console.log("handleCardDrawRequest: updateTurnStatus()");
         // ターン更新
         updateTurnStatus();
     }
@@ -2017,14 +2050,11 @@ function handleCardDrawn(card) {
     renderMyHand(); // 自分の手札を再描画
     sendHandSizeUpdate(); // 自分の手札サイズを相手に通知
 
-    console.log("handleCardDrawn", myHand.length)
     // 自分の手札が0枚になったかチェック
     if (myHand.length === 0) {
-        console.log("handleCardDrawn: you-lost");
         sendData({ type: 'you-lost' }); // 相手が敗北したことを通知
         showRematchPrompt(true); // 自分が勝ち
     } else {
-        console.log("handleCardDrawn: updateTurnStatus()");
         // ターン終了を相手に通知 (相手のmyTurnがtrueになる)
         updateTurnStatus();
     }

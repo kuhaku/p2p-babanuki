@@ -629,7 +629,7 @@ function sendLobbyNotification(message) {
 }
 
 // ロビーチャット送信
-function sendChatMessage(msg = '') {
+function sendChatMessage(msg = '', sound = true, voice = '') {
     input = chatInputEl
     if (!msg) {
         msg = input.value.trim();
@@ -647,8 +647,10 @@ function sendChatMessage(msg = '') {
         event: 'message',
         payload: { id: msgId, name: myName, message: msg, timestamp: ts, userId }
     });
-    // チャット送信音を鳴らす
-    playChatTransmissionSound();
+
+    if (sound) playChatNotificationSound();  // チャット送信音を鳴らす
+
+    if (voice) speakText(voice);
 
     input.value = '';
 }
@@ -699,27 +701,27 @@ function gyouzaNoOhSho() {
     ohshoCounter += 1;
     switch (ohshoCounter) {
         case 1:
-            sendChatMessage('将');
+            sendChatMessage('将', sound = false, voice = 'しょう');
             button = document.getElementById("oh-button");
             button.classList.remove("hidden");
             break;
         case 2:
-            sendChatMessage('王');
+            sendChatMessage('王', sound = false, voice = '王');
             button = document.getElementById("no-button");
             button.classList.remove("hidden");
             break;
         case 3:
-            sendChatMessage('の');
+            sendChatMessage('の', sound = false, voice = 'の');
             button = document.getElementById("za-button");
             button.classList.remove("hidden");
             break;
         case 4:
-            sendChatMessage('子');
+            sendChatMessage('子', sound = false, voice = 'ざ');
             button = document.getElementById("gyou-button");
             button.classList.remove("hidden");
             break;
         case 5:
-            sendChatMessage('餃');
+            sendChatMessage('餃', sound = false, voice = 'ぎょう');
             let idPrefixes = ['oh', 'no', 'za', 'gyou'];
             idPrefixes.forEach(idPrefix => {
                 let button = document.getElementById(`${idPrefix}-button`);

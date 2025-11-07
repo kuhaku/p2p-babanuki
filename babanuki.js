@@ -1492,6 +1492,7 @@ async function createRoomAndShare() {
 function initGameChatElements() {
     gameChatMessages = document.getElementById('game-chat-messages');
     gameChatInput = document.getElementById('game-chat-input');
+    gameChatMessages.innerHTML = '';
 
     if (gameChatSend && !gameChatSend.__listenerAdded) {
         gameChatSend.__listenerAdded = true;

@@ -1421,6 +1421,12 @@ function setupDataChannelListeners() {
                 // speakEmoticonReaction(emoticon);
                 renderEmoticonReaction(emoticon);
                 break;
+            case 'voice-reaction':
+                text = msg.message;
+                pitch = msg.pitch;
+                rate = msg.rate;
+                speakText(text, pitch, rate);
+                break;
             default:
                 break;
         }
@@ -1657,14 +1663,30 @@ function renderEmoticonReaction(emoticon) {
 /**
  * 顔文字リアクションボタン押したら通知する
  */
-function sendReaction(text) {
+function sendReaction(text, writingToChat = true) {
     if (dataChannel && dataChannel.readyState === 'open') {
         playReactionClickSound(text);
         sendData({
             type: 'emoticon-reaction',
             emoticon: text
         });
-        sendGameChatMessage(text);
+        if (writingToChat) {
+            sendGameChatMessage(text);
+        }
+    }
+}
+
+/**
+ * 音声リアクションボタン押したら送信する
+ */
+function sendVoiceReaction(text, pitch = 1.0, rate = 1.0) {
+    if (dataChannel && dataChannel.readyState === 'open') {
+        sendData({
+            type: 'voice-reaction',
+            message: text,
+            pitch: pitch,
+            rate: rate
+        });
     }
 }
 
@@ -1850,6 +1872,10 @@ function showRematchPrompt(isWinner) {
 
     const title = isWinner ? '貴殿の勝ちヽ(´ー｀)ノ' : '貴殿の負け(^Д^)';
     const body = 'もう一度対戦しますか？';
+    const buttonEmoticon = isWinner ? '(^Д^)' : '(;`Д´)';
+    const voiceMessage = isWinner ? 'ぎゃははは！プーックス！' : 'ぐぬぬっ！悔しいっ！';
+    const rate = isWinner ? 1.2 : 0.8;
+    const pitch = isWinner ? 1.2 : 0.8;
 
     // 既にモーダルが開いている場合は更新しない（重複呼び出し防止）
     if (modalOverlay.classList.contains('hidden') === false && modalTitle.textContent.startsWith('ゲーム終了')) {
@@ -1874,6 +1900,13 @@ function showRematchPrompt(isWinner) {
                 sendRematchRequest();
             }
         },
+        {
+            text: buttonEmoticon,
+            class: 'bg-yellow-500',
+            action: () => {
+                sendVoiceReaction(voiceMessage, pitch, rate);
+            }
+        }
     ]);
 }
 

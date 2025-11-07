@@ -697,11 +697,6 @@ function appendLobbyChatMessage(sender, message, timestamp, isSelf = false) {
     lobbyContainer.insertBefore(msgEl, lobbyContainer.firstChild);
 }
 
-// ロビーチャットの投稿消すボタン
-function clearLobbyChatInput() {
-    chatInputEl.value = '';
-}
-
 /**
  * 餃子の王将
  */
@@ -1497,12 +1492,6 @@ function initGameChatElements() {
     if (gameChatSend && !gameChatSend.__listenerAdded) {
         gameChatSend.__listenerAdded = true;
     }
-}
-
-// 対戦部屋の投稿消すボタン
-function clearGameChatInput() {
-    gameChatInput = document.getElementById('game-chat-input');
-    gameChatInput.value = '';
 }
 
 // 対戦部屋チャットメッセージを画面に表示

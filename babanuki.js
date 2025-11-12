@@ -16,6 +16,9 @@ let userStatus = 'init';  // {init | free | busy | gaming}
 const SYSTEM_USER_NAME = '通知';
 const SYSTEM_USER_ID = 'system';
 
+// ボイスレスモード
+let voiceLess = false;
+
 // ロビーチャット
 let chatChannel;
 let chatMessagesEl, chatInputEl, chatSendBtn;
@@ -64,7 +67,8 @@ const RIGHT_HANDS = ["ノ", "ﾉ", "/", "へ", "ﾍ", "v", ">", "σ", "y-~~", "o
 let setupScreen, lobbyScreen, gameScreen, joinLobbyBtn, leaveGameBtn,
     nameInput, userNameEl, playerList, setupLoading, noPlayersMessage, noPlayersImage,
     myNameEl, opponentNameEl, statusMessage, drawnCardMessageEl, myHandContainer, opponentHandContainer,
-    modalOverlay, modalContent, modalTitle, modalBody, modalButtons;
+    modalOverlay, modalContent, modalTitle, modalBody, modalButtons,
+    voiceLessBtn1, voiceLessBtn2, voiceLessBtn3;
 
 // ファイル送信用
 let fileInputEl, fileSendBtnEl, fileStatusEl;
@@ -339,11 +343,20 @@ function speakText(text, rate = 1.0, pitch = 1.0) {
             console.log('音声合成:', text);
         };
 
-        speechSynthesis.speak(speechMsg);
+        if (!voiceLess) speechSynthesis.speak(speechMsg);
 
     } else {
         console.log('エラー: お使いのブラウザはWeb Speech APIをサポートしていません。');
     }
+}
+
+// 無声モード切り替え
+function toggleVoiceLess() {
+    voiceLess = !voiceLess;
+    let message = voiceLess ? '声有にする' : '無声にする';
+    voiceLessBtn1.textContent = message;
+    voiceLessBtn2.textContent = message;
+    voiceLessBtn3.textContent = message;
 }
 
 // 日時フォーマッタ（%Y-%m-%d %H:%M:%S）
@@ -2530,6 +2543,12 @@ function initializeDOMElements() {
     fileInputEl = document.getElementById('file-input');
     fileSendBtnEl = document.getElementById('file-send-btn');
     fileStatusEl = document.getElementById('file-status');
+    voiceLessBtn1 = document.getElementById('voiceless-mode-button1');
+    voiceLessBtn1.onclick = () => toggleVoiceLess();
+    voiceLessBtn2 = document.getElementById('voiceless-mode-button2');
+    voiceLessBtn2.onclick = () => toggleVoiceLess();
+    voiceLessBtn3 = document.getElementById('voiceless-mode-button3');
+    voiceLessBtn3.onclick = () => toggleVoiceLess();
 }
 
 document.addEventListener('DOMContentLoaded', () => {

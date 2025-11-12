@@ -104,6 +104,10 @@
                 class="w-full bg-green-600 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-green-700 transition duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50">
                 待合室に入る
             </button>
+            <button id="voiceless-mode-button1"
+                class="bg-gray-600 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-gray-700 transition duration-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50">
+                無声にする
+            </button>
             <div id="setup-loading" class="hidden text-center mt-4">
                 <p class="text-green-600 animate-pulse">Supabaseに接続中...</p>
             </div>
@@ -180,11 +184,17 @@
                             onclick="gyouzaNoOhSho();">将</button>
                     </div>
                 </div>
-                <p><span class="bg-sky-600 text-white rounded-md p-2 mx-2"><a
-                            href="https://x.com/intent/tweet?text=%E3%83%90%E3%83%90%E6%B4%BB%E7%9B%B8%E6%89%8B%E5%8B%9F%E9%9B%86%E4%B8%AD%28%3B%C2%B4%D0%94%60%29%20%0Ahttps%3A%2F%2Fkuhaku.github.io%2Fp2p-babanuki%2F%0A%23%E3%83%90%E3%83%90%E6%B4%BB%20%23%E5%90%88%E6%B3%95%20%23%E3%83%84%E3%83%BC%E3%82%B7%E3%83%A7%E3%83%83%E3%83%88%20%23%E7%A7%98%E5%AF%86%20%23%E5%85%B1%E6%9C%89">ツイッター</a></span>
-                    <span class="bg-green-700 text-white rounded-md p-2 mx-2"><a
-                            href="https://social-plugins.line.me/lineit/share?url=https%3A%2F%2Fkuhaku.github.io%2Fp2p-babanuki%2F">LINE</a></span>
-                </p>
+                <div class="flex items-center">
+                    <p><span class="bg-sky-600 text-white rounded-md p-2 mx-2"><a
+                                href="https://x.com/intent/tweet?text=%E3%83%90%E3%83%90%E6%B4%BB%E7%9B%B8%E6%89%8B%E5%8B%9F%E9%9B%86%E4%B8%AD%28%3B%C2%B4%D0%94%60%29%20%0Ahttps%3A%2F%2Fkuhaku.github.io%2Fp2p-babanuki%2F%0A%23%E3%83%90%E3%83%90%E6%B4%BB%20%23%E5%90%88%E6%B3%95%20%23%E3%83%84%E3%83%BC%E3%82%B7%E3%83%A7%E3%83%83%E3%83%88%20%23%E7%A7%98%E5%AF%86%20%23%E5%85%B1%E6%9C%89">ツイッター</a></span>
+                        <span class="bg-green-700 text-white rounded-md p-2 mx-2"><a
+                                href="https://social-plugins.line.me/lineit/share?url=https%3A%2F%2Fkuhaku.github.io%2Fp2p-babanuki%2F">LINE</a></span>
+                    </p>
+                    <button id="voiceless-mode-button2"
+                        class="bg-gray-600 text-white font-bold p-2 mx-2 rounded-lg shadow-md hover:bg-gray-700 transition duration-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50">
+                        無声にする
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -271,6 +281,12 @@
                         <h3 class="text-lg font-semibold text-white mb-2">待合室待機者</h3>
                         <div id="lobby-user-count" class="text-sm text-white mb-2">人数: 読み込み中...</div>
                         <ul id="lobby-user-list" class="pl-0 text-white text-sm"></ul>
+                    </div>
+                    <div class="border-t border-gray-300 mt-4 pt-4">
+                        <button id="voiceless-mode-button3"
+                            class="bg-gray-600 text-white font-bold p-2 mx-2 rounded-lg shadow-md hover:bg-gray-700 transition duration-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50">
+                            無声にする
+                        </button>
                     </div>
                 </div>
                 <div id="emoticon-reaction-field"

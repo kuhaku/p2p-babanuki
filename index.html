@@ -56,30 +56,16 @@
 
             /*
             * 2. ギザギザ模様
-            *
-            * === SVGの内容 ===
-            * <svg xmlns='http://www.w3.org/2000/svg' width='40' height='20'>
-            *
-            * <polygon
-            * points='0,5 10,0 20,5 30,0 40,5 40,15 30,20 20,15 10,20 0,15'
-            * fill='black'
-            * />
-            * </svg>
-            *
             */
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='20'%3E%3Cpolygon points='0,5 10,0 20,5 30,0 40,5 40,15 30,20 20,15 10,20 0,15' fill='black' /%3E%3C/svg%3E");
-
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 20'%3E%3Cpath d='M 0 5 L 10 0 L 20 5 L 30 0 L 40 5 L 40 10 L 30 5 L 20 10 L 10 5 L 0 10 Z' fill='black' /%3E%3C/svg%3E");
             /* 3. 繰り返し方法 (横方向(x)にのみリピート) */
             background-repeat: repeat-x;
 
-            /* 4. 表示位置 (縦横中央) */
-            background-position: center center;
+            /* 4. 表示位置 */
+            background-position: center 85%;
 
             /*
             * 5. 模様のサイズ
-            * カードの幅が可変(clamp)なため、模様のサイズは固定値にする
-            * 元のSVGの比率 (40:20 = 2:1) を維持し、
-            * 帯の高さ(height)を 30px に指定 (幅は 60px)
             */
             background-size: 60px 30px;
 

@@ -51,14 +51,41 @@
         }
 
         .card-back {
-            background-color: black;
-            background-image: linear-gradient(135deg, #f5bc1e 25%, transparent 25%),
-                linear-gradient(225deg, #f5bc1e 25%, transparent 25%),
-                linear-gradient(45deg, #f5bc1e 25%, transparent 25%),
-                linear-gradient(315deg, #f5bc1e 25%, #000000 25%);
-            background-position: 10px 0, 10px 0, 0 0, 0 0;
-            background-size: 20px 20px;
-            background-repeat: repeat;
+            /* 1. ベースの黄色 */
+            background-color: #FAD544;
+
+            /*
+            * 2. ギザギザ模様
+            *
+            * SVGの内容:
+            * <svg xmlns='http://www.w3.org/2000/svg' width='40' height='20'>
+            * <!--
+            * width=40, height=20 のキャンバスに、
+            * 黒(fill='black')でギザギザの形(d=...)を描画
+            * M=MoveTo(開始点), L=LineTo(線)
+            * (0,10) -> (10,0) [山] -> (20,10) [谷] -> (30,0) [山] -> (40,10) [谷]
+            * -> (30,20) [逆の山] -> (20,10) [逆の谷] -> (10,20) [逆の山] -> (0,10) [閉じる]
+            * -->
+            * <path d='M 0 10 L 10 0 L 20 10 L 30 0 L 40 10 L 30 20 L 20 10 L 10 20 L 0 10 Z' fill='black' />
+            * </svg>
+            */
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='20'%3E%3Cpath d='M 0 10 L 10 0 L 20 10 L 30 0 L 40 10 L 30 20 L 20 10 L 10 20 L 0 10 Z' fill='black' /%3E%3C/svg%3E");
+
+            /* 3. 繰り返し方法 (横方向(x)にのみリピート) */
+            background-repeat: repeat-x;
+
+            /* 4. 表示位置 (縦横中央) */
+            background-position: center center;
+
+            /*
+            * 5. 模様のサイズ
+            * カードの幅が可変(clamp)なため、模様のサイズは固定値にする
+            * 元のSVGの比率 (40:20 = 2:1) を維持し、
+            * 帯の高さ(height)を 30px に指定 (幅は 60px)
+            */
+            background-size: 60px 30px;
+
+            /* カードの文字を非表示にする */
             color: transparent;
         }
 

@@ -57,19 +57,17 @@
             /*
             * 2. ギザギザ模様
             *
-            * SVGの内容:
+            * === SVGの内容 ===
             * <svg xmlns='http://www.w3.org/2000/svg' width='40' height='20'>
-            * <!--
-            * width=40, height=20 のキャンバスに、
-            * 黒(fill='black')でギザギザの形(d=...)を描画
-            * M=MoveTo(開始点), L=LineTo(線)
-            * (0,10) -> (10,0) [山] -> (20,10) [谷] -> (30,0) [山] -> (40,10) [谷]
-            * -> (30,20) [逆の山] -> (20,10) [逆の谷] -> (10,20) [逆の山] -> (0,10) [閉じる]
-            * -->
-            * <path d='M 0 10 L 10 0 L 20 10 L 30 0 L 40 10 L 30 20 L 20 10 L 10 20 L 0 10 Z' fill='black' />
+            *
+            * <polygon
+            * points='0,5 10,0 20,5 30,0 40,5 40,15 30,20 20,15 10,20 0,15'
+            * fill='black'
+            * />
             * </svg>
+            *
             */
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='20'%3E%3Cpath d='M 0 10 L 10 0 L 20 10 L 30 0 L 40 10 L 30 20 L 20 10 L 10 20 L 0 10 Z' fill='black' /%3E%3C/svg%3E");
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='20'%3E%3Cpolygon points='0,5 10,0 20,5 30,0 40,5 40,15 30,20 20,15 10,20 0,15' fill='black' /%3E%3C/svg%3E");
 
             /* 3. 繰り返し方法 (横方向(x)にのみリピート) */
             background-repeat: repeat-x;
@@ -269,6 +267,18 @@
                             <button id="game-chat-input-clear-btn"
                                 class="bg-green-800 text-white font-semibold px-4 py-2 rounded-lg shadow hover:bg-green-900 transition"
                                 onclick="document.getElementById('game-chat-input').value = '';">消す</button>
+                        </div>
+                        <div id="file-transfer-container" class="md:text-base font-semibold text-white mb-2 py-2">
+                            <h4 class="text-base text-white font-semibold mb-2">ファイルを送る</h4>
+                            <div class="flex justify-between items-center space-x-1">
+                                <input type="file" id="file-input"
+                                    class="text-white text-sm file:mr-2 file:py-1 file:px-1 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200 w-full"
+                                    disabled>
+                                <button id="file-send-btn"
+                                    class="bg-green-600 text-white font-bold px-1 py-2 rounded-md hover:bg-green-700 transition"
+                                    disabled>送信</button>
+                            </div>
+                            <div id="file-status" class="text-sm text-yellow-300 mt-2 min-h-[20px]"></div>
                         </div>
                     </div>
                     <div id="active-lobby-users" class="border-t border-gray-300 mt-4 pt-4">

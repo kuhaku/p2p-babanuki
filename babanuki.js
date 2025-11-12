@@ -66,6 +66,12 @@ let setupScreen, lobbyScreen, gameScreen, joinLobbyBtn, leaveGameBtn,
     myNameEl, opponentNameEl, statusMessage, drawnCardMessageEl, myHandContainer, opponentHandContainer,
     modalOverlay, modalContent, modalTitle, modalBody, modalButtons;
 
+// ファイル送信用
+let fileInputEl, fileSendBtnEl, fileStatusEl;
+const CHUNK_SIZE = 16384; // 16KB
+let receiveBuffer = [];
+let receivedFileInfo = {};
+
 // 接続用
 const SUPABASE_URL = 'https://odkdeivaqnznhmnsewmx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9ka2RlaXZhcW56bmhtbnNld214Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE4MjE4ODgsImV4cCI6MjA3NzM5Nzg4OH0.THFIq1oTLsYmHbdNomZQ9kA7n2gFvIfCFGGFWvxlj_s';
@@ -1348,11 +1354,19 @@ function setupPeerConnection() {
     if (isHost) {
         dataChannel = peerConnection.createDataChannel('gameData');
         setupDataChannelListeners();
+        fileDataChannel = peerConnection.createDataChannel('fileTransfer');
+        setupFileDataChannelListeners(); // ファイル送信用リスナー
     } else {
         // ゲスト側はDataChannelを待機
         peerConnection.ondatachannel = (event) => {
-            dataChannel = event.channel;
-            setupDataChannelListeners();
+            const channel = event.channel;
+            if (channel.label === 'gameData') {
+                dataChannel = channel;
+                setupDataChannelListeners();
+            } else if (channel.label === 'fileTransfer') {
+                fileDataChannel = channel;
+                setupFileDataChannelListeners();
+            }
         };
     }
 }
@@ -1491,6 +1505,161 @@ function setupDataChannelListeners() {
     };
 }
 
+// ▼▼▼ ここからファイル送信用リスナーを新規作成 ▼▼▼
+/**
+ * File DataChannelのイベントリスナー設定 (共通)
+ */
+function setupFileDataChannelListeners() {
+    fileDataChannel.binaryType = 'arraybuffer'; // バイナリタイプをArrayBufferに設定
+
+    fileDataChannel.onopen = () => {
+        console.log("File Data Channel OPEN");
+        // ファイル送受信UIを有効化
+        if (fileInputEl && fileSendBtnEl) {
+            fileInputEl.disabled = false;
+            fileSendBtnEl.disabled = false;
+            fileSendBtnEl.onclick = sendFile; // 送信ボタンのクリックイベントを設定
+            fileStatusEl.textContent = 'ファイル送信の準備ができました。';
+        }
+    };
+
+    fileDataChannel.onclose = () => {
+        console.log("File Data Channel CLOSE");
+        // UIを無効化
+        if (fileInputEl && fileSendBtnEl) {
+            fileInputEl.disabled = true;
+            fileSendBtnEl.disabled = true;
+            fileStatusEl.textContent = 'ファイル接続が切れました。';
+        }
+    };
+
+    fileDataChannel.onerror = (error) => {
+        console.error("File Data Channel エラー:", error);
+    };
+
+    // メッセージ受信処理
+    fileDataChannel.onmessage = (event) => {
+        handleFileMessage(event.data);
+    };
+}
+
+/**
+ * ファイル送信ボタンが押されたときの処理
+ */
+function sendFile() {
+    const file = fileInputEl.files[0];
+    if (!file) {
+        fileStatusEl.textContent = 'ファイルが選択されていません。';
+        return;
+    }
+
+    fileStatusEl.textContent = `送信中: ${file.name} (0%)`;
+
+    // 1. ファイル情報 (メタデータ) を送信
+    fileDataChannel.send(JSON.stringify({
+        type: 'start',
+        name: file.name,
+        size: file.size,
+        fileType: file.type
+    }));
+
+    // 2. ファイル本体をチャンクで送信
+    const reader = new FileReader();
+    let offset = 0;
+
+    reader.onload = (e) => {
+        const buffer = e.target.result;
+        try {
+            fileDataChannel.send(buffer); // ArrayBufferを送信
+            offset += buffer.byteLength;
+
+            const progress = Math.round((offset / file.size) * 100);
+            fileStatusEl.textContent = `送信中: ${file.name} (${progress}%)`;
+
+            if (offset < file.size) {
+                readSlice(offset); // 次のチャンクを読み込む
+            } else {
+                // 3. 送信完了を通知
+                fileDataChannel.send(JSON.stringify({ type: 'end' }));
+                fileStatusEl.textContent = `送信完了: ${file.name}`;
+                fileInputEl.value = ''; // 入力をクリア
+            }
+        } catch (error) {
+            console.error("File send error:", error);
+            fileStatusEl.textContent = `送信エラー: ${error.message}`;
+        }
+    };
+
+    reader.onerror = (err) => {
+        console.error("File reading error:", err);
+        fileStatusEl.textContent = `ファイル読み込みエラー: ${err}`;
+    }
+
+    const readSlice = (o) => {
+        const slice = file.slice(o, o + CHUNK_SIZE);
+        reader.readAsArrayBuffer(slice);
+    };
+
+    readSlice(0); // 最初のチャンクを読み込む
+}
+
+/**
+ * ファイルデータ受信時の処理
+ * @param {ArrayBuffer | string} data
+ */
+function handleFileMessage(data) {
+    // メッセージが文字列かバイナリかで処理を分岐
+    if (typeof data === 'string') {
+        try {
+            const msg = JSON.parse(data);
+            if (msg.type === 'start') {
+                // 受信バッファをリセット
+                receiveBuffer = [];
+                receivedFileInfo = msg;
+                fileStatusEl.textContent = `受信中: ${msg.name}`;
+            } else if (msg.type === 'end') {
+                // ファイル受信完了
+                const receivedBlob = new Blob(receiveBuffer, { type: receivedFileInfo.fileType });
+
+                // ダウンロードリンクを作成
+                const url = URL.createObjectURL(receivedBlob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = receivedFileInfo.name;
+                a.textContent = `ダウンロード: ${receivedFileInfo.name}`;
+                a.className = "text-green-400 hover:text-green-300 underline";
+
+                // 既存のリンクがあれば置き換え、なければ追加
+                const existingLink = fileStatusEl.querySelector('a');
+                if (existingLink) {
+                    fileStatusEl.replaceChild(a, existingLink);
+                } else {
+                    fileStatusEl.textContent = ''; // 「受信中」のテキストをクリア
+                    fileStatusEl.appendChild(a);
+                }
+
+                // メモリ解放
+                receiveBuffer = [];
+                receivedFileInfo = {};
+            }
+        } catch (e) {
+            console.error("Failed to parse JSON message:", e, data);
+        }
+    } else if (data instanceof ArrayBuffer) {
+        // ファイルチャンクを受信
+        receiveBuffer.push(data);
+
+        // 進捗表示 (簡易版)
+        if (receivedFileInfo.size) {
+            const receivedSize = receiveBuffer.reduce((acc, chunk) => acc + chunk.byteLength, 0);
+            const progress = Math.round((receivedSize / receivedFileInfo.size) * 100);
+            fileStatusEl.textContent = `受信中: ${receivedFileInfo.name} (${progress}%)`;
+        }
+    } else {
+        console.warn("Unknown data type received:", data);
+    }
+}
+
 /**
  * 接続とゲーム変数をリセット
  * @param {boolean} [shouldShowLobby=true] - 実行後にロビー画面を表示するか
@@ -1506,6 +1675,12 @@ function cleanupConnection(shouldShowLobby = true) {
         dataChannel.close();
         dataChannel = null;
     }
+
+    if (fileDataChannel) {
+        fileDataChannel.close();
+        fileDataChannel = null;
+    }
+
     if (peerConnection) {
         peerConnection.close();
         peerConnection = null;
@@ -1521,6 +1696,14 @@ function cleanupConnection(shouldShowLobby = true) {
     statusMessage.textContent = "接続待機中...";
     statusMessage.classList.add('animate-pulse');
     drawnCardMessageEl.textContent = ''; // メッセージクリア
+
+    // ファイルUIをリセット
+    if (fileInputEl) fileInputEl.disabled = true;
+    if (fileSendBtnEl) fileSendBtnEl.disabled = true;
+    if (fileStatusEl) fileStatusEl.textContent = '';
+    if (fileInputEl) fileInputEl.value = '';
+    receiveBuffer = [];
+    receivedFileInfo = {};
 }
 
 /**
@@ -2344,6 +2527,9 @@ function initializeDOMElements() {
     modalTitle = document.getElementById('modal-title');
     modalBody = document.getElementById('modal-body');
     modalButtons = document.getElementById('modal-buttons');
+    fileInputEl = document.getElementById('file-input');
+    fileSendBtnEl = document.getElementById('file-send-btn');
+    fileStatusEl = document.getElementById('file-status');
 }
 
 document.addEventListener('DOMContentLoaded', () => {

@@ -243,22 +243,22 @@
                 <div>
                     <div>
                         <h3 class="md:text-lg font-semibold text-white mb-2">対戦部屋チャット</h3>
-                        <div id="game-chat-messages"
-                            class="bg-green-950 h-48 overflow-y-auto rounded-md p-3 mb-3 text-sm shadow-lg">
-                        </div>
-                        <div class="my-2 flex justify-center">
-                            <button id="hage-reaction"
+                        <div class="my-2 flex justify-center md:block">
+                            <button
                                 class="bg-red-900 text-white font-bold lg:text-base md:text-sm text-xs md:mx-3 mx-1 md:px-2 px-1 py-1 rounded-md hover:bg-red-950 active:bg-white active:text-red-950 transition"
                                 onclick="sendReaction('ヽ(;`Д´)ﾉ');">ヽ(;`Д´)ﾉ</button>
-                            <button id="ase-reaction"
+                            <button
                                 class="bg-green-900 text-white font-bold lg:text-base md:text-sm text-xs md:mx-3 mx-1 md:px-2 px-1 py-1 rounded-md hover:bg-green-950 active:bg-white active:text-green-950 transition"
                                 onclick="sendReaction('(;´Д`)');">(;´Д`)</button>
-                            <button id="matari-reaction"
+                            <button
                                 class="bg-yellow-900 text-white font-bold lg:text-base md:text-sm text-xs md:mx-3 mx-1 md:px-2 px-1 py-1 rounded-md hover:bg-yellow-950 active:bg-white active:text-yellow-950 transition"
                                 onclick="sendReaction('ヽ(´ー｀)ノ');">ヽ(´ー｀)ノ</button>
-                            <button id="gyaha-reaction"
+                            <button
                                 class="bg-orange-900 text-white font-bold lg:text-base md:text-sm text-xs md:mx-3 mx-1 md:px-2 px-1 py-1 rounded-md hover:bg-orange-950 active:bg-white active:text-orange-950 transition"
                                 onclick="sendReaction('(^Д^)');">(^Д^)</button>
+                        </div>
+                        <div id="game-chat-messages"
+                            class="bg-green-950 h-48 overflow-y-auto rounded-md p-3 mb-3 text-sm shadow-lg">
                         </div>
                         <div class="flex space-x-2">
                             <input id="game-chat-input" type="text" placeholder="メッセージを入力"

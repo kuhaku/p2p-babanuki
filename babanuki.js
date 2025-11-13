@@ -753,6 +753,7 @@ function gyouzaNoOhSho() {
             break;
     }
 }
+
 function soshi() {
     sendChatMessage('阻止(;`Д´)', sound = false, voice = '阻止！');
 }

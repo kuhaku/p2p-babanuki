@@ -753,6 +753,9 @@ function gyouzaNoOhSho() {
             break;
     }
 }
+function soshi() {
+    sendChatMessage('阻止(;`Д´)', sound = false, voice = '阻止！');
+}
 
 async function initLobby(myName) {
     // オーディオコンテキストの初期化

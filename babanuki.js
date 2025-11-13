@@ -9,12 +9,13 @@ let signalChannel; // Broadcast用 (招待/SDP/ICE交換)
 let opponentUserId = '';
 let opponentName = '';
 let isHost = false; // 招待した側 (ゲームのホスト)
-let myTurn = false;
-let myHand = [];
-let opponentHandSize = 0;
 let userStatus = 'init';  // {init | free | busy | gaming}
 const SYSTEM_USER_NAME = '通知';
 const SYSTEM_USER_ID = 'system';
+
+// ゲーム共通
+let currentGameType = null; // 'babanuki' or 'quoridor'
+let myPlayerNum = 0; // 1 (ホスト) or 2 (ゲスト)
 
 // ボイスレスモード
 let voiceLess = false;
@@ -25,6 +26,9 @@ let chatMessagesEl, chatInputEl, chatSendBtn;
 let previousLobbyChatMsgId = '';
 let previousLocalLobbyChatMsgId = '';
 let onlinePlayers = new Set();
+const LOBBY_NAME = 'babakatsu-lobby';
+const LOBBY_CHAT_NAME = 'babakatsu-lobby-chat'
+const SYGNAL_NAME = 'babakatsu-signals'
 
 // 対戦者チャット
 let gameChatChannel, gameChatMessages, gameChatInput, gameChatSend;
@@ -59,19 +63,19 @@ const LEFT_HANDS = ["ヽ", "Σ", "ъ", "ノ", "ヾ", "ε≡三ヽ", "<", "v", "o
 const MANPU = [";", ";", ";", ";", ";", "*", "#"]
 const LEFT_HANDS_IN_FACE = ["ﾉ", "ノ", "ρ"]
 const LEFT_EYES = ["´", "´", "´", "ﾟ", " ﾟ", "^", "'", "`", "T", ";", "⌒", "≧", "†", "｡"]
-const MOUTHS = ["Д", "ｰ", "ー", "￢", "_", "〜", "x", "ｑ", "π", "ρ", "〇", "血", "皿", "山", "口", "州", "犬", "死", "災", "Ｈ", "∇", "Ω", ")Д(", "ε", "＊", "🈲", "♡", "Дﾟ;三;ﾟД", "Д^)(^Д", "Дﾟ)(ﾟД", "Д`)(ﾟД", "Д`)(;`Д", "Д`)人(´Д", "Д`)人(;`Д", "ー`)ʃ💴ヽ(´ー", "Д^)ʃ💴ヽ(;`Д", "Д^)ʃ💊ヽ(;`Д", "Д^)ﾉ⌒㊙️ヽ(;`Д", "Д^)ﾉ⌒💩(;`Д"]
+const MOUTHS = ["Д", "ｰ", "ー", "￢", "_", "〜", "x", "ｑ", "π", "ρ", "〇", "血", "皿", "山", "口", "州", "犬", "死", "災", "Ｈ", "∇", "Ω", ")Д(", "ε", "＊", "♡", "Дﾟ;三;ﾟД", "Д^)(^Д", "Дﾟ)(ﾟД", "Д`)(ﾟД", "Д`)(;`Д", "Д`)人(´Д", "Д`)人(;`Д", "ー`)ʃ💴ヽ(´ー", "Д^)ʃ💴ヽ(;`Д", "Д^)ʃ💊ヽ(;`Д", "Д^)ﾉ⌒㊙️ヽ(;`Д", "Д^)ﾉ⌒💩(;`Д"]
 const RIGHT_EYES = ["`", "`", "`", "｀", "`､", "､`", "ﾟ", "､ﾟ", "^", "^､", "'", "T", "´", "Ｔ", "T", ";", "⌒", "⌒ゞ", "≦", "†", "｡"]
 const RIGHT_HANDS = ["ノ", "ﾉ", "/", "へ", "ﾍ", "v", ">", "σ", "y-~~", "o", "c", "｢", "┘", "┌", "ʃ", "＿ﾋﾟｻﾞおまちっ！", "-☆", "ﾉ⌒💊", "ﾉ⌒㊙️", "ﾉ⌒♡", "ﾉ⌒💴", "ﾉ💴", "ﾉ🍺", "ﾉ🍣", "ﾉ🍖", "ﾉ👙", "ﾉ💩", "💕", "💦"]
 
 // HTML要素
 let setupScreen, lobbyScreen, gameScreen, joinLobbyBtn, leaveGameBtn,
-    nameInput, userNameEl, playerList, setupLoading, noPlayersMessage, noPlayersImage,
+    nameInput, userNameEl, playerList, noPlayersMessage, noPlayersImage,
     myNameEl, opponentNameEl, statusMessage, drawnCardMessageEl, myHandContainer, opponentHandContainer,
     modalOverlay, modalContent, modalTitle, modalBody, modalButtons,
-    voiceLessBtn1, voiceLessBtn2, voiceLessBtn3;
+    voiceLessBtn1, voiceLessBtn2;
 
 // ファイル送信用
-let fileInputEl, fileSendBtnEl, fileStatusEl;
+let fileDataChannel, fileInputEl, fileSendBtnEl, fileStatusEl;
 const CHUNK_SIZE = 16384; // 16KB
 let receiveBuffer = [];
 let receivedFileInfo = {};
@@ -88,10 +92,25 @@ const configuration = {
     ]
 };
 
-// カード定義
+// --- ババ抜き用ゲーム変数 ---
+let myHand = [];
+let opponentHandSize = 0;
+let myTurn = false; // ババ抜き専用のターンフラグ
 const SUITS = ['♥', '♦', '♠', '♣'];
 const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
 const JOKER = { suit: 'JOKER', rank: 'JOKER', display: 'JOKER', color: 'black' };
+
+// --- コリドール用ゲーム変数 ---
+const Q_BOARD_SIZE = 9; // 9x9 グリッド
+const Q_WALL_COUNT = 10; // 各プレイヤーの壁の数
+let TILE_SIZE, WALL_THICKNESS, PAWN_RADIUS, boardPixels;
+let player1Pos, player2Pos;
+let player1Walls, player2Walls;
+let q_currentPlayer; // 1 or 2
+let horizontalWalls, verticalWalls; // 8x8のboolean配列
+let currentAction; // 'move', 'h_wall', 'v_wall'
+let potentialWall; // { col, row, orientation }
+let gameOver;
 
 
 function escapeChar(str) {
@@ -102,6 +121,7 @@ function escapeChar(str) {
 
 // --- サウンドエンジン ---
 let synth; // シンセサイザー (Tone.js)
+let buzzerSynth; // ブザー音
 
 /**
  * Tone.jsの初期化 (ユーザー操作時に呼び出す)
@@ -112,6 +132,24 @@ async function initializeAudio() {
     }
     // シンセサイザーを初期化
     synth = new Tone.PolySynth(Tone.Synth).toDestination();
+    buzzerSynth = new Tone.FMSynth({
+        oscillator: { type: "triangle" },
+        envelope: {
+            attack: 0.1,
+            decay: 0.5,
+            sustain: 1,
+            release: 0.4
+        },
+        modulation: { type: "sine" },
+        modulationEnvelope: {
+            attack: 0.01,
+            decay: 0.1,
+            sustain: 1,
+            release: 0.1
+        },
+        harmonicity: 1.1,
+        modulationIndex: 0.5
+    }).toDestination();
 }
 
 /**
@@ -152,6 +190,20 @@ function playClickSound() {
         synth.triggerAttackRelease("E4", "8n", now + 0.1);
     } catch (e) {
         console.error("playClickSound error:", e);
+    }
+}
+
+/**
+ * ブザー音
+ */
+function playBuzzerSound() {
+    if (!buzzerSynth) return;
+    try {
+        const now = Tone.now();
+        buzzerSynth.triggerAttackRelease("A2", "8n", now);;
+        buzzerSynth.triggerAttackRelease("G#2", "8n", now + 0.1);
+    } catch (e) {
+        console.error("playBuzzerSound error:", e);
     }
 }
 
@@ -353,10 +405,9 @@ function speakText(text, rate = 1.0, pitch = 1.0) {
 // 無声モード切り替え
 function toggleVoiceLess() {
     voiceLess = !voiceLess;
-    let message = voiceLess ? '声有にする' : '無声にする';
+    let message = voiceLess ? '声有する' : '無声する';
     voiceLessBtn1.textContent = message;
     voiceLessBtn2.textContent = message;
-    voiceLessBtn3.textContent = message;
 }
 
 // 日時フォーマッタ（%Y-%m-%d %H:%M:%S）
@@ -397,12 +448,10 @@ function formatTimestamp(ts) {
 async function initializeSupabase() {
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
         showModal('エラー', 'SupabaseのURLとAnonキーを両方入力してください。', [
-            { text: 'はい', class: 'bg-blue-500', action: hideModal }
+            { text: 'はい', class: 'bg-red-500', action: hideModal }
         ]);
         return false;
     }
-
-    setupLoading.classList.remove('hidden');
 
     try {
         // window.supabaseからcreateClientを取得
@@ -411,7 +460,6 @@ async function initializeSupabase() {
 
         // 接続テスト (簡単なクエリ)
         if (supabase) {
-            setupLoading.classList.add('hidden');
             return true;
         } else {
             throw new Error("クライアントの作成に失敗しました。");
@@ -419,7 +467,6 @@ async function initializeSupabase() {
 
     } catch (error) {
         console.error("Supabase 初期化エラー:", error);
-        setupLoading.classList.add('hidden');
         showModal('エラー', `Supabaseの接続に失敗しました: ${error.message}`, [
             { text: 'はい', class: 'bg-red-500', action: hideModal }
         ]);
@@ -438,7 +485,7 @@ async function setupLobbyChat() {
     //     chatChannel = null;
     // }
 
-    chatChannel = supabase.channel('babanuki-lobby-chat');
+    chatChannel = supabase.channel(LOBBY_CHAT_NAME);
 
     // 多重登録防止
     if (!chatChannel.__listenerAdded) {
@@ -506,6 +553,25 @@ function showModal(title, body, buttons = []) {
  */
 function hideModal() {
     modalOverlay.classList.add('hidden');
+}
+
+/**
+ * ゲーム選択モーダルを表示
+ */
+function showGameChoiceModal(targetUserId, targetName) {
+    gameChoiceModalTitle.textContent = `${targetName} を招待`;
+    gameChoiceModalOverlay.classList.remove('hidden');
+
+    gameChoiceBabanukiBtn.onclick = () => sendInvite(targetUserId, targetName, 'babanuki');
+    gameChoiceQuoridorBtn.onclick = () => sendInvite(targetUserId, targetName, 'quoridor');
+    gameChoiceCancelBtn.onclick = hideGameChoiceModal;
+}
+
+/**
+ * ゲーム選択モーダルを非表示
+ */
+function hideGameChoiceModal() {
+    gameChoiceModalOverlay.classList.add('hidden');
 }
 
 // --- 3. ユーザー名関連の処理 ---
@@ -770,7 +836,7 @@ async function initLobby(myName) {
         setTimeout(loadJapVoice, 100);
     }
 
-    userNameEl.innerHTML = `名前: ${escapeChar(myName)}`;
+    userNameEl.textContent = `名前: ${myName}`;
 
     // Supabaseクライアントの初期化
     const success = await initializeSupabase();
@@ -803,7 +869,7 @@ async function initLobby(myName) {
     }
 
     // ロビーチャンネルに参加
-    lobbyChannel = supabase.channel('babanuki-lobby', {
+    lobbyChannel = supabase.channel(LOBBY_NAME, {
         config: {
             presence: {
                 key: userId, // PresenceキーにUserIDを使用
@@ -935,7 +1001,7 @@ function renderLobby(presenceState) {
                 button = document.createElement('button');
                 button.textContent = '果たし状';
                 button.className = 'bg-green-600 text-white font-bold md:text-base text-xs py-1 md:px-4 px-2 rounded-md shadow hover:bg-green-700 transition duration-300';
-                button.onclick = () => inviteToGame(presence.user_id, presence.name);
+                button.onclick = () => showGameChoiceModal(presence.user_id, presence.name); // ゲーム選択モーダルを表示
             }
 
             playerEl.appendChild(playerNameContainer);
@@ -979,7 +1045,7 @@ async function setupSignalChannel() {
     }
 
     // チャンネル名は固定 (全ユーザ共通)
-    signalChannel = supabase.channel(`babanuki-signals`);
+    signalChannel = supabase.channel(SYGNAL_NAME);
 
     // ブロードキャストイベントをリッスン
     // (チャンネルを新規作成したので多重登録の心配はない)
@@ -1070,24 +1136,32 @@ function exitToLobby() {
 }
 
 // 6.1 招待 (ホスト -> ゲスト)
-function inviteToGame(targetUserId, targetName) {
+/**
+ * 招待シグナルを送信（ゲーム選択モーダルから呼ばれる）
+ */
+function sendInvite(targetUserId, targetName, gameType) {
+    hideGameChoiceModal(); // モーダルを閉じる
+
     opponentUserId = targetUserId;
     opponentName = targetName;
     isHost = true;
+    currentGameType = gameType; // 選択されたゲームタイプをセット
+    myPlayerNum = 1; // ホストはPlayer 1
 
     sendSignal({
         type: 'invite',
         targetUserId: opponentUserId, // ゲスト宛て
         senderUserId: userId,
-        senderName: myName
+        senderName: myName,
+        gameType: currentGameType // ゲームタイプを追加
     });
 
     if (userStatus !== 'busy') {
         userStatus = 'busy';
         updateMyPresence();
     }
-
-    showModal('招待中', `${targetName} をババ活に誘ってます……`, [
+    const gameName = gameType === 'babanuki' ? 'ババ抜き' : 'コリドール';
+    showModal('招待中', `${targetName} を ${gameName} に誘ってます……`, [
         { text: 'やっぱやめる', class: 'bg-gray-500', action: cancelInvite }
     ]);
 }
@@ -1130,6 +1204,9 @@ function handleInvite(payload) {
     opponentUserId = payload.senderUserId;
     opponentName = payload.senderName;
     isHost = false;
+    currentGameType = payload.gameType; // ゲームタイプをセット
+    myPlayerNum = 2; // ゲストはPlayer 2
+
     if (userStatus !== 'busy') {
         userStatus = 'busy';
         updateMyPresence();
@@ -1138,7 +1215,8 @@ function handleInvite(payload) {
     // 招待受信音を鳴らす
     playInviteSound();
 
-    showModal('挑戦者現る！', `${payload.senderName}からババ活のお誘いがきました`, [
+    const gameName = currentGameType === 'babanuki' ? 'ババ抜き' : 'コリドール';
+    showModal('挑戦者現る！', `${payload.senderName}から ${gameName} のお誘いがきました`, [
         { text: '拒否', class: 'bg-red-500', action: () => rejectInvite(payload.senderUserId) },
         { text: '許可', class: 'bg-green-600', action: acceptInvite },
     ]);
@@ -1214,7 +1292,8 @@ function acceptInvite() {
         type: 'accept',
         targetUserId: opponentUserId, // ホスト宛て
         senderUserId: userId,
-        senderName: myName
+        senderName: myName,
+        gameType: currentGameType // ゲームタイプを返信
     });
 
     if (userStatus !== 'gaming') {
@@ -1234,6 +1313,7 @@ function handleAccept(payload) {
     // 招待を承認してきた相手の情報をペイロードから正しく設定する
     opponentUserId = payload.senderUserId;
     opponentName = payload.senderName;
+    currentGameType = payload.gameType; // 相手が合意したゲームタイプをセット
 
     setupPeerConnection(); // ホスト側
 
@@ -1241,7 +1321,8 @@ function handleAccept(payload) {
     createOffer();
 
     // ロビーチャットに通知
-    sendLobbyNotification(`${myName} と ${opponentName} の対戦開始`);
+    const gameName = currentGameType === 'babanuki' ? 'ババ抜き' : 'コリドール';
+    sendLobbyNotification(`${myName} と ${opponentName} の ${gameName} 対戦開始`);
 
     if (userStatus !== 'gaming') {
         userStatus = 'gaming';
@@ -1360,7 +1441,6 @@ function setupPeerConnection() {
     peerConnection.onconnectionstatechange = (event) => {
         if (peerConnection.connectionState === 'connected') {
             statusMessage.textContent = "接続完了！ゲーム開始を待っています...";
-            statusMessage.classList.remove('animate-pulse');
         } else if (peerConnection.connectionState === 'failed' || peerConnection.connectionState === 'disconnected') {
             // 相手が予期せず切断した場合
             handleHangup();
@@ -1395,7 +1475,11 @@ function setupDataChannelListeners() {
     dataChannel.onopen = () => {
         if (isHost) {
             // ホストがゲームを開始する
-            initializeGame();
+            if (currentGameType === 'babanuki') {
+                initializeBabanukiGame();
+            } else if (currentGameType === 'quoridor') {
+                initQuoridorGame(); // ホストがコリドールを初期化
+            }
             // ホスト側のみ roomId を生成・送信
             createRoomAndShare();
             // 自分側のチャットも初期化
@@ -1417,112 +1501,52 @@ function setupDataChannelListeners() {
     dataChannel.onmessage = (event) => {
         const msg = JSON.parse(event.data);
 
-        switch (msg.type) {
-            // ゲストがホストから手札を受け取る
-            case 'deal':
-                myHand = discardPairsFromHand(msg.hand, true); // 初期ペアを捨てる
-
-                // 手札が0枚なら自分の勝ち
-                if (myHand.length === 0) {
-                    // UIは更新せず、すぐにホストが負けたことを伝える
-                    sendData({ type: 'you-lost' });
-                    showRematchPrompt(true); // ゲストは勝ち
-                    break;
-                }
-
-                statusMessage.textContent = "貴殿のターン";
-                drawnCardMessageEl.textContent = ''; // メッセージクリア
-                myTurn = msg.myTurn;
-
-                // ゲーム開始音 (ゲスト側)
-                playDealSound();
-
-                renderMyHand();
-                sendHandSizeUpdate();
-                updateTurnStatus();
-                break;
-
-            // 相手の手札の枚数更新
-            case 'hand-size-update':
-                opponentHandSize = msg.size;
-                renderOpponentHand();
-                // 相手の手札が0枚になったか確認 ---
-                if (opponentHandSize === 0) {
-                    // 相手の手札が0枚になった = 自分の負け
-                    // 相手からも 'you-lost' が送られてくるはずだが、
-                    // 念のためこちらでも敗北処理をトリガーする
-                    handleYouLost();
-                }
-                break;
-
-            // (ホストが) ゲストからカードを引くリクエストを受ける
-            case 'draw-request':
-                handleCardDrawRequest(msg.index);
-                break;
-
-            // (ゲストが) ホストから引いたカード情報を受け取る
-            case 'card-drawn':
-                handleCardDrawn(msg.card);
-                break;
-
-            // ターン交代の通知
-            case 'turn-update':
-                // 相手のmyTurn状態の逆が、現在の自分のmyTurn状態になる
-                myTurn = !msg.myTurn;
-                // UIを更新するが、シグナルは再送しない
-                updateTurnStatus(false);
-                break;
-
-            // 相手が「貴殿の勝ち」と通知してきた時
-            case 'you-won':
-                handleYouWon();
-                break;
-
-            // 相手が「貴殿の負け」と通知してきた時
-            case 'you-lost':
-                handleYouLost();
-                break;
-
-            // 再戦要求
-            case 'rematch-request':
-                handleRematchRequest();
-                break;
-
-            // 再戦拒否
-            case 'rematch-decline':
-                handleRematchDecline();
-                break;
-
-            // ゲストが受信した場合にroomIdをセット
-            case 'roomId':
-                roomId = msg.roomId;
-                // ゲスト側も受信直後にチャット初期化
-                try {
-                    if (roomId) {
-                        setupGameChat(roomId);
+        // gameTypeに基づいて処理を振り分け
+        if (msg.gameType === 'babanuki') {
+            handleBabanukiData(msg);
+        } else if (msg.gameType === 'quoridor') {
+            handleQuoridorData(msg);
+        } else {
+            // ゲームタイプが不明な共通メッセージ（チャットルームIDなど）
+            switch (msg.type) {
+                case 'roomId':
+                    roomId = msg.roomId;
+                    // ゲスト側も受信直後にチャット初期化
+                    try {
+                        if (roomId) {
+                            setupGameChat(roomId);
+                        }
+                    } catch (err) {
+                        console.error('setupGameChat呼び出しエラー:', err);
                     }
-                } catch (err) {
-                    console.error('setupGameChat呼び出しエラー:', err);
-                }
-                break;
-            case 'emoticon-reaction':
-                emoticon = msg.emoticon;
-                // speakEmoticonReaction(emoticon);
-                renderEmoticonReaction(emoticon);
-                break;
-            case 'voice-reaction':
-                text = msg.message;
-                pitch = msg.pitch;
-                rate = msg.rate;
-                speakText(text, pitch, rate);
-                break;
-            default:
-                break;
-        }
-    };
+                    break;
+                case 'emoticon-reaction':
+                    emoticon = msg.emoticon;
+                    renderEmoticonReaction(emoticon);
+                    break;
+                case 'voice-reaction':
+                    text = msg.message;
+                    pitch = msg.pitch;
+                    rate = msg.rate;
+                    speakText(text, pitch, rate);
+                    break;
+                // ババ抜きのリマッチリクエストはゲームタイプを付与していなかったので、
+                // 互換性のためにここで処理する
+                case 'rematch-request':
+                    handleRematchRequest();
+                    break;
+                case 'rematch-decline':
+                    handleRematchDecline();
+                    break;
+                default:
+                    console.warn("未定義のメッセージタイプ（ゲームタイプ無し）:", msg);
+                    break;
+            }
+        };
+    }
 }
 
-// ▼▼▼ ここからファイル送信用リスナーを新規作成 ▼▼▼
+// ファイル送信用リスナー
 /**
  * File DataChannelのイベントリスナー設定 (共通)
  */
@@ -1712,7 +1736,10 @@ function cleanupConnection(shouldShowLobby = true) {
 
     statusMessage.textContent = "接続待機中...";
     statusMessage.classList.add('animate-pulse');
-    drawnCardMessageEl.textContent = ''; // メッセージクリア
+
+    // UIを隠す
+    if (babanukiUI) babanukiUI.classList.add('hidden');
+    if (quoridorUI) quoridorUI.classList.add('hidden');
 
     // ファイルUIをリセット
     if (fileInputEl) fileInputEl.disabled = true;
@@ -1729,9 +1756,23 @@ function cleanupConnection(shouldShowLobby = true) {
 function resetGameVariables() {
     opponentUserId = '';
     opponentName = '';
+    // 共通
+    currentGameType = null;
+    myPlayerNum = 0;
+
+    // ババ抜き
     myTurn = false;
     myHand = [];
     opponentHandSize = 0;
+
+    // コリドール
+    player1Pos = null;
+    player2Pos = null;
+    q_currentPlayer = 0;
+    horizontalWalls = null;
+    verticalWalls = null;
+    gameOver = false;
+    currentAction = 'move';
 
     // 再戦フラグをリセット
     rematchRequested = false;
@@ -1749,7 +1790,7 @@ async function createRoomAndShare() {
         sendData({
             type: 'roomId',
             roomId: roomId, // 対戦部屋チャットID
-        });
+        }, false); // gameTypeを付与しない共通メッセージ
     }
 }
 
@@ -1792,7 +1833,7 @@ async function setupGameChat(roomId) {
         gameChatChannel = null;
     }
 
-    gameChatChannel = supabase.channel(`babanuki-game-${roomId}-chat`);
+    gameChatChannel = supabase.channel(`game-${roomId}-chat`);
     initGameChatElements();
 
     gameChatChannel.on('broadcast', { event: 'message' }, ({ payload }) => {
@@ -1927,7 +1968,7 @@ function sendReaction(text, writingToChat = true) {
         sendData({
             type: 'emoticon-reaction',
             emoticon: text
-        });
+        }, false); // gameTypeを付与しない共通メッセージ
         if (writingToChat) {
             sendGameChatMessage(text);
         }
@@ -1944,28 +1985,254 @@ function sendVoiceReaction(text, pitch = 1.0, rate = 1.0) {
             message: text,
             pitch: pitch,
             rate: rate
-        });
+        }, false); // gameTypeを付与しない共通メッセージ
+    }
+}
+
+function printTurnStatus(myTurn = true) {
+    if (myTurn) {
+        statusMessage.textContent = "貴殿のターン！";
+        statusMessage.classList.remove('animate-pulse', 'text-white');
+        statusMessage.classList.add('text-yellow-400', 'animate-bounce');
+    } else {
+        statusMessage.textContent = "相手のターン…";
+        statusMessage.classList.remove('text-yellow-400', 'animate-bounce');
+        statusMessage.classList.add('animate-pulse', 'text-white');
     }
 }
 
 /**
- * ゲーム画面の初期UI設定
- */
+* ゲーム画面の初期UI設定
+*/
 function setupGameUI() {
-    myNameEl.innerText = `${myName} (貴殿)`;
-    opponentNameEl.innerText = `${opponentName} (敵)`;
-    myHandContainer.innerHTML = '';
-    opponentHandContainer.innerHTML = '';
-    drawnCardMessageEl.textContent = ''; // メッセージクリア
-
-    // 同じroomIdを使用してチャットを初期化
+    // 共通チャットUIを初期化
     setupGameChat(roomId);
     // ロビーにいる他プレイヤー情報を表示
     showActiveLobbyUsersInGame(lobbyChannel.presenceState());
+
+    if (currentGameType === 'babanuki') {
+        // ババ抜きUI表示
+        babanukiUI.classList.remove('hidden');
+        quoridorUI.classList.add('hidden');
+
+        // ババ抜き用UI要素のセットアップ
+        myNameEl.innerText = `${myName} (貴殿)`;
+        opponentNameEl.innerText = `${opponentName} (敵)`;
+        myHandContainer.innerHTML = '';
+        opponentHandContainer.innerHTML = '';
+        drawnCardMessageEl.textContent = ''; // メッセージクリア
+
+    } else if (currentGameType === 'quoridor') {
+        // コリドールUI表示
+        babanukiUI.classList.add('hidden');
+        quoridorUI.classList.remove('hidden');
+
+        // コリドール用UI要素のセットアップ
+        // P1 (ホスト) が青、 P2 (ゲスト) が赤
+        if (isHost) {
+            qPlayer1Name.textContent = `貴殿: ${myName}`;
+            qPlayer2Name.textContent = `敵: ${opponentName}`;
+        } else {
+            qPlayer1Name.textContent = `敵: ${opponentName}`;
+            qPlayer2Name.textContent = `貴殿: ${myName}`;
+        }
+
+        // イベントリスナー設定
+        canvas.addEventListener('click', handleQuoridorBoardClick);
+        canvas.addEventListener('mousemove', handleQuoridorMouseMove);
+        canvas.addEventListener('mouseleave', () => {
+            potentialWall = null;
+            drawQuoridorGame();
+        });
+        qMoveBtn.addEventListener('click', () => setQuoridorAction('move'));
+        qHWallBtn.addEventListener('click', () => setQuoridorAction('h_wall'));
+        qVWallBtn.addEventListener('click', () => setQuoridorAction('v_wall'));
+
+        // リサイズ処理（初回描画も兼ねる）
+        resizeQuoridorCanvas();
+    }
 }
 
-// --- 8. ゲームロジック ---
+// 8. DataChannel メッセージ振り分け
 
+/**
+ * DataChannelでメッセージを送信するヘルパー
+ * @param {Object} data - 送信するJSONオブジェクト
+ * @param {boolean} [addGameType=true] - gameTypeを自動付与するか
+ */
+function sendData(data, addGameType = true) {
+    if (dataChannel && dataChannel.readyState === 'open') {
+        // gameTypeを自動的に付与
+        if (addGameType && currentGameType) {
+            data.gameType = currentGameType;
+        }
+        dataChannel.send(JSON.stringify(data));
+    } else {
+        console.error("Data Channelがオープンしていません。送信失敗:", data);
+    }
+}
+/**
+ * ババ抜き用のデータ処理
+ * @param {Object} msg 
+ */
+function handleBabanukiData(msg) {
+    switch (msg.type) {
+        // (ゲストが) ホストから手札を受け取る
+        case 'deal':
+            myHand = discardPairsFromHand(msg.hand, true); // 初期ペアを捨てる
+
+            // 手札が0枚なら自分の勝ち
+            if (myHand.length === 0) {
+                // UIは更新せず、すぐにホストが負けたことを伝える
+                sendData({ type: 'you-lost' });
+                showRematchPrompt(true); // ゲストは勝ち
+                break;
+            }
+
+            printTurnStatus(myTurn = true);
+            drawnCardMessageEl.textContent = ''; // メッセージクリア
+            myTurn = msg.myTurn;
+
+            // ゲーム開始音 (ゲスト側)
+            playDealSound();
+
+            renderMyHand();
+            sendHandSizeUpdate();
+            updateTurnStatus();
+            break;
+
+        // 相手の手札の枚数更新
+        case 'hand-size-update':
+            opponentHandSize = msg.size;
+            renderOpponentHand();
+            // 相手の手札が0枚になったか確認 ---
+            if (opponentHandSize === 0) {
+                // 相手の手札が0枚になった = 自分の負け
+                // 相手からも 'you-lost' が送られてくるはずだが
+                // 念のためこちらでも敗北処理をトリガーする
+                showRematchPrompt(false);
+            }
+            break;
+
+        // (ホストが) ゲストからカードを引くリクエストを受ける
+        case 'draw-request':
+            handleCardDrawRequest(msg.index);
+            break;
+
+        // (ゲストが) ホストから引いたカード情報を受け取る
+        case 'card-drawn':
+            handleCardDrawn(msg.card);
+            break;
+
+        // ターン交代の通知
+        case 'turn-update':
+            // 相手のmyTurn状態の逆が、現在の自分のmyTurn状態になる
+            myTurn = !msg.myTurn;
+            // UIを更新するが、シグナルは再送しない
+            updateTurnStatus(false);
+            break;
+
+        // 相手が「貴殿の勝ち」と通知してきた時
+        case 'you-won':
+            showRematchPrompt(true);
+            break;
+
+        // 相手が「貴殿の負け」と通知してきた時
+        case 'you-lost':
+            showRematchPrompt(false);
+            break;
+
+        // (フォールバック)
+        case 'rematch-request':
+            handleRematchRequest();
+            break;
+        case 'rematch-decline':
+            handleRematchDecline();
+            break;
+
+        default:
+            console.warn("未定義のババ抜きメッセージタイプ:", msg);
+            break;
+    }
+}
+
+/**
+ * コリドール用のデータ処理
+ * @param {Object} msg 
+ */
+function handleQuoridorData(msg) {
+    switch (msg.type) {
+        // (ゲストが) ホストからゲーム初期状態を受信
+        case 'quoridor-init':
+            // グローバル変数に状態をセット
+            player1Pos = msg.player1Pos;
+            player2Pos = msg.player2Pos;
+            player1Walls = msg.player1Walls;
+            player2Walls = msg.player2Walls;
+            horizontalWalls = msg.horizontalWalls;
+            verticalWalls = msg.verticalWalls;
+            q_currentPlayer = msg.q_currentPlayer;
+            gameOver = msg.gameOver;
+            currentAction = 'move'; // デフォルト
+
+            resizeQuoridorCanvas(); // 描画
+            updateQuoridorUI();
+            break;
+
+        // (相手側が) ポーン移動を受信
+        case 'quoridor-move':
+            { // ブロックスコープ
+                const player = (msg.playerNum === 1) ? player1Pos : player2Pos;
+                player.x = msg.toCol;
+                player.y = msg.toRow;
+
+                if (checkQuoridorWin(msg.playerNum)) {
+                    gameOver = true;
+                    q_currentPlayer = msg.playerNum; // 勝者をセット
+                } else {
+                    switchQuoridorTurn();
+                }
+                updateQuoridorUI();
+                drawQuoridorGame();
+            }
+            break;
+
+        // (相手側が) 壁設置を受信
+        case 'quoridor-wall':
+            { // ブロックスコープ
+                if (msg.orientation === 'horizontal') {
+                    horizontalWalls[msg.row][msg.col] = true;
+                } else {
+                    verticalWalls[msg.row][msg.col] = true;
+                }
+
+                if (msg.playerNum === 1) {
+                    player1Walls--;
+                } else {
+                    player2Walls--;
+                }
+
+                switchQuoridorTurn();
+                updateQuoridorUI();
+                drawQuoridorGame();
+            }
+            break;
+
+        // (フォールバック)
+        case 'rematch-request':
+            handleRematchRequest();
+            break;
+        case 'rematch-decline':
+            handleRematchDecline();
+            break;
+
+        default:
+            console.warn("未定義のコリドールメッセージタイプ:", msg);
+            break;
+    }
+}
+
+// --- 9. ババ抜きゲームロジック ---
 /**
  * デッキを作成しシャッフルする
  */
@@ -2049,7 +2316,7 @@ function discardPairsFromHand(hand, isInitial) {
 /**
  * ゲーム初期化 (ホストのみ実行)
  */
-function initializeGame() {
+function initializeBabanukiGame() {
     const deck = createDeck();
 
     // カードを配る (2人用)
@@ -2103,12 +2370,10 @@ function initializeGame() {
     sendHandSizeUpdate();
     if (guestStarts) {
         updateTurnStatus(false);
-        statusMessage.textContent = "相手のターン…";
-        statusMessage.classList.add('animate-pulse');
+        printTurnStatus(myTurn = false);
     } else {
         updateTurnStatus(true);
-        statusMessage.textContent = "貴殿のターン！";
-        statusMessage.classList.remove('animate-pulse');
+        printTurnStatus(myTurn = true);
     }
     drawnCardMessageEl.textContent = ''; // メッセージクリア
 }
@@ -2124,8 +2389,15 @@ function showRematchPrompt(isWinner) {
 
     let resultMessage = '';
     if (isWinner) {
-        resultMessage = `${myName} が ${opponentName} に勝利しました！`;
+        playWinSound(); // 勝利音
+        if (currentGameType === 'babanuki') {
+            resultMessage = `${myName} が ${opponentName} にババ抜きで勝利しました！`;
+        } else if (currentGameType === 'quoridor') {
+            resultMessage = `${myName} が ${opponentName} にコリドールで勝利しました！`;
+        }
         sendLobbyNotification(resultMessage);  // ロビーチャットに結果を通知
+    } else {
+        playLoseSound(); // 敗北音
     }
 
     const title = isWinner ? '貴殿の勝ちヽ(´ー｀)ノ' : '貴殿の負け(^Д^)';
@@ -2146,9 +2418,9 @@ function showRematchPrompt(isWinner) {
             class: 'bg-gray-500',
             action: () => {
                 // 相手に再戦拒否を通知
-                sendData({ type: 'rematch-decline' });
+                sendData({ type: 'rematch-decline' }, false); // 共通メッセージ
                 // カウントダウン処理へ
-                startExitCountdown('ゲーム終了', '再戦は不成立となりました。ロビーに戻ります。');
+                startExitCountdown('ゲーム終了', '再戦は不成立となりました。待合室に戻ります。');
             }
         },
         {
@@ -2173,7 +2445,7 @@ function showRematchPrompt(isWinner) {
  */
 function sendRematchRequest() {
     rematchRequested = true;
-    sendData({ type: 'rematch-request' });
+    sendData({ type: 'rematch-request' }, false); // 共通メッセージ
 
     if (opponentRematchRequested) {
         // 相手も既に同意済みの場合、ゲームを再開
@@ -2184,7 +2456,7 @@ function sendRematchRequest() {
             '再戦の意思を相手に伝えました。相手の返答を待っています...', [
             {
                 text: 'キャンセル',
-                class: 'bg-blue-500',
+                class: 'bg-gray-500',
                 action: exitToLobby
             }
         ]);
@@ -2240,7 +2512,7 @@ function startExitCountdown(title, body) {
     const buttons = [
         {
             text: 'ロビーに戻る',
-            class: 'bg-blue-500',
+            class: 'bg-green-500',
             action: () => {
                 clearInterval(gameExitTimer); // タイマー停止
                 gameExitTimer = null;
@@ -2287,19 +2559,29 @@ function restartGame() {
     gameResultSent = false;
 
     // ゲームUIをリセット
-    myHand = [];
-    opponentHandSize = 0;
-    renderMyHand();
-    renderOpponentHand();
-    drawnCardMessageEl.textContent = ''; // メッセージクリア
+    if (currentGameType === 'babanuki') {
+        myHand = [];
+        opponentHandSize = 0;
+        renderMyHand();
+        renderOpponentHand();
+        drawnCardMessageEl.textContent = ''; // メッセージクリア
 
-    if (isHost) {
-        // ホストがゲームを再初期化
-        statusMessage.textContent = "再戦開始...カードを配っています...";
-        initializeGame();
-    } else {
-        // ゲストはホストからの 'deal' メッセージを待つ
-        statusMessage.textContent = "再戦開始...ホストを待っています...";
+        if (isHost) {
+            // ホストがゲームを再初期化
+            statusMessage.textContent = "再戦開始...カードを配っています...";
+            initializeBabanukiGame();
+        } else {
+            // ゲストはホストからの 'deal' メッセージを待つ
+            statusMessage.textContent = "再戦開始...ホストを待っています...";
+        }
+    } else if (currentGameType === 'quoridor') {
+        if (isHost) {
+            statusMessage.textContent = "再戦開始...盤面を準備しています...";
+            initQuoridorGame(); // ホストがコリドールを再初期化
+        } else {
+            statusMessage.textContent = "再戦開始...ホストを待っています...";
+            // ゲストは 'quoridor-init' を待つ
+        }
     }
 }
 
@@ -2311,7 +2593,7 @@ function handleCardDrawRequest(index) {
     if (index < 0 || index >= myHand.length) {
         console.error("無効なドローリクエスト:", index, myHand.length);
         showModal("エラー", "無効なドローリクエストです。", [
-            { text: '拝承', class: 'bg-blue-500', action: () => { hideModal(); exitToLobby(); } }
+            { text: '拝承', class: 'bg-red-500', action: () => { hideModal(); exitToLobby(); } }
         ]);
         return;
     }
@@ -2382,7 +2664,8 @@ function handleCardDrawn(card) {
     if (pairFound) {
         drawnCardMessageEl.textContent = `「${card.display}」を引きました。「${matchingCardDisplay}」とペアになり、捨てました！`;
     } else if (card.display === 'JOKER') {
-        drawnCardMessageEl.textContent = 'ババを引きました(^Д^)残念！'
+        drawnCardMessageEl.textContent = 'ババを引きました(^Д^)残念！';
+        playBuzzerSound();
     } else {
         drawnCardMessageEl.textContent = `「${card.display}」を引きました。ペアはありませんでした。`;
     }
@@ -2402,23 +2685,6 @@ function handleCardDrawn(card) {
         updateTurnStatus();
     }
 }
-
-/**
- * 相手が「貴殿の勝ち」と通知してきた時の処理
- */
-function handleYouWon() {
-    playWinSound(); // 勝利音
-    showRematchPrompt(true); // 自分が勝ち
-}
-
-/**
- * 相手が「貴殿の負け」と通知してきた時の処理
- */
-function handleYouLost() {
-    playLoseSound(); // 敗北音
-    showRematchPrompt(false); // 自分が負け
-}
-
 
 /**
  * 自分の手札を描画
@@ -2441,7 +2707,7 @@ function renderMyHand() {
         cardEl.className = `card ${card.color} ${card.rank === 'JOKER' ? 'joker' : ''}`;
         cardEl.textContent = card.display;
         // 自分のカードはクリック不可
-        cardEl.style.cursor = 'default';
+        cardEl.style.cursor = 'not-allowed';
         myHandContainer.appendChild(cardEl);
     });
 }
@@ -2471,6 +2737,8 @@ function renderOpponentHand() {
                     sendData({ type: 'draw-request', index: i });
                 }
             };
+        } else {
+            cardEl.style.cursor = 'not-allowed';
         }
         opponentHandContainer.appendChild(cardEl);
     }
@@ -2482,12 +2750,10 @@ function renderOpponentHand() {
  */
 function updateTurnStatus(shouldSendUpdate = true) {
     if (myTurn) {
-        statusMessage.textContent = "貴殿のターン！";
-        statusMessage.classList.remove('animate-pulse');
+        printTurnStatus(myTurn = true);
         opponentHandContainer.classList.add('cursor-pointer');
     } else {
-        statusMessage.textContent = "相手のターン…";
-        statusMessage.classList.add('animate-pulse');
+        printTurnStatus(myTurn = false);
         opponentHandContainer.classList.remove('cursor-pointer');
     }
     // 相手の手札を再描画 (クリック可/不可を反映)
@@ -2500,25 +2766,514 @@ function updateTurnStatus(shouldSendUpdate = true) {
 }
 
 /**
- * DataChannelでメッセージを送信するヘルパー
- * @param {Object} data - 送信するJSONオブジェクト
- */
-function sendData(data) {
-    if (dataChannel && dataChannel.readyState === 'open') {
-        dataChannel.send(JSON.stringify(data));
-    } else {
-        console.error("Data Channelがオープンしていません。送信失敗:", data);
-    }
-}
-
-/**
  * 自分の手札の枚数を相手に通知
  */
 function sendHandSizeUpdate() {
     sendData({ type: 'hand-size-update', size: myHand.length });
 }
 
+
+// --- 10. コリドールゲームロジック ---
+/**
+ * コリドールゲーム初期化 (ホストのみ実行)
+ */
+function initQuoridorGame() {
+    // グローバル変数にゲーム状態をセット
+    player1Pos = { x: 4, y: 8 }; // プレイヤー1 (青, 下側)
+    player2Pos = { x: 4, y: 0 }; // プレイヤー2 (赤, 上側)
+    player1Walls = Q_WALL_COUNT;
+    player2Walls = Q_WALL_COUNT;
+    q_currentPlayer = (Math.random() < 0.5) ? 1 : 2;  // 先攻後攻はランダムで決める (1が先攻)
+    horizontalWalls = Array(Q_BOARD_SIZE - 1).fill(null).map(() => Array(Q_BOARD_SIZE - 1).fill(false));
+    verticalWalls = Array(Q_BOARD_SIZE - 1).fill(null).map(() => Array(Q_BOARD_SIZE - 1).fill(false));
+    currentAction = 'move';
+    potentialWall = null;
+    gameOver = false;
+
+    // ゲストに初期状態を送信
+    sendData({
+        type: 'quoridor-init',
+        player1Pos,
+        player2Pos,
+        player1Walls,
+        player2Walls,
+        horizontalWalls,
+        verticalWalls,
+        q_currentPlayer,
+        gameOver
+    });
+
+    // 自分のUIも更新
+    updateQuoridorUI();
+    resizeQuoridorCanvas(); // 描画
+}
+
+/**
+ * コリドール キャンバスのサイズ調整
+ */
+function resizeQuoridorCanvas() {
+    if (!canvas) return;
+    const parent = canvas.parentElement;
+    const size = Math.min(parent.clientWidth, parent.clientHeight);
+    canvas.width = size;
+    canvas.height = size;
+    boardPixels = size;
+
+    WALL_THICKNESS = boardPixels / (Q_BOARD_SIZE * 4 + (Q_BOARD_SIZE - 1)); // 9*4 + 8 = 44
+    TILE_SIZE = WALL_THICKNESS * 4;
+    PAWN_RADIUS = TILE_SIZE * 0.35;
+
+    drawQuoridorGame();
+}
+
+/**
+ * コリドール 盤面描画 (全体)
+ */
+function drawQuoridorGame() {
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawQuoridorBoard();
+    drawQuoridorWalls();
+    drawQuoridorPawns();
+    drawQuoridorPotentialWall();
+}
+
+function drawQuoridorBoard() {
+    ctx.fillStyle = '#f0d9b5'; // 盤の色
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = '#c7a77b'; // 溝の色
+    for (let i = 0; i < Q_BOARD_SIZE - 1; i++) {
+        // 横溝
+        const y = (i + 1) * TILE_SIZE + i * WALL_THICKNESS;
+        ctx.fillRect(0, y, boardPixels, WALL_THICKNESS);
+        // 縦溝
+        const x = (i + 1) * TILE_SIZE + i * WALL_THICKNESS;
+        ctx.fillRect(x, 0, WALL_THICKNESS, boardPixels);
+    }
+}
+
+function drawQuoridorWalls() {
+    if (!horizontalWalls || !verticalWalls) return;
+    ctx.fillStyle = '#8b4513'; // 壁の色
+
+    // 横壁
+    for (let r = 0; r < Q_BOARD_SIZE - 1; r++) {
+        for (let c = 0; c < Q_BOARD_SIZE - 1; c++) {
+            if (horizontalWalls[r][c]) {
+                const x = c * (TILE_SIZE + WALL_THICKNESS);
+                const y = (r + 1) * TILE_SIZE + r * WALL_THICKNESS;
+                const width = 2 * TILE_SIZE + WALL_THICKNESS;
+                ctx.fillRect(x, y, width, WALL_THICKNESS);
+            }
+        }
+    }
+    // 縦壁
+    for (let r = 0; r < Q_BOARD_SIZE - 1; r++) {
+        for (let c = 0; c < Q_BOARD_SIZE - 1; c++) {
+            if (verticalWalls[r][c]) {
+                const x = (c + 1) * TILE_SIZE + c * WALL_THICKNESS;
+                const y = r * (TILE_SIZE + WALL_THICKNESS);
+                const height = 2 * TILE_SIZE + WALL_THICKNESS;
+                ctx.fillRect(x, y, WALL_THICKNESS, height);
+            }
+        }
+    }
+}
+
+function drawQuoridorPawns() {
+    if (!player1Pos || !player2Pos) return;
+    // プレイヤー1 (青)
+    drawQuoridorPawn(player1Pos.x, player1Pos.y, '#3b82f6');
+    // プレイヤー2 (赤)
+    drawQuoridorPawn(player2Pos.x, player2Pos.y, '#ef4444');
+}
+
+function drawQuoridorPawn(col, row, color) {
+    const { x, y } = getQuoridorPixelCoords(col, row);
+    ctx.fillStyle = color;
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(x, y, PAWN_RADIUS, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.stroke();
+}
+
+function drawQuoridorPotentialWall() {
+    if (!potentialWall || gameOver) return;
+
+    const { col, row, orientation } = potentialWall;
+    const isValid = isWallPlacementValid(col, row, orientation, true); // true = 簡易チェック
+
+    ctx.fillStyle = isValid ? 'rgba(0, 255, 0, 0.5)' : 'rgba(255, 0, 0, 0.5)';
+
+    if (orientation === 'horizontal') {
+        const x = col * (TILE_SIZE + WALL_THICKNESS);
+        const y = (row + 1) * TILE_SIZE + row * WALL_THICKNESS;
+        const width = 2 * TILE_SIZE + WALL_THICKNESS;
+        ctx.fillRect(x, y, width, WALL_THICKNESS);
+    } else { // vertical
+        const x = (col + 1) * TILE_SIZE + col * WALL_THICKNESS;
+        const y = row * (TILE_SIZE + WALL_THICKNESS);
+        const height = 2 * TILE_SIZE + WALL_THICKNESS;
+        ctx.fillRect(x, y, WALL_THICKNESS, height);
+    }
+}
+
+/**
+ * コリドール UI更新
+ */
+function updateQuoridorUI() {
+    if (!qP1WallsEl) return; // UIがまだない場合は終了
+
+    qP1WallsEl.textContent = player1Walls;
+    qP2WallsEl.textContent = player2Walls;
+
+    // ターン表示 (共通ステータスメッセージ)
+    if (!gameOver) {
+        if (q_currentPlayer === myPlayerNum) {
+            printTurnStatus(myTurn = true);
+            if (myPlayerNum === 1) {
+                qP1Ping.classList.remove('hidden');
+            } else {
+                qP2Ping.classList.remove('hidden');
+            }
+        } else {
+            printTurnStatus(myTurn = false);
+            if (myPlayerNum === 1) {
+                qP1Ping.classList.add('hidden');
+            } else {
+                qP2Ping.classList.add('hidden');
+            }
+        }
+    }
+
+    if (gameOver) {
+        statusMessage.textContent = "ゲーム終了！";
+        statusMessage.classList.remove('animate-pulse');
+        qPlayer1Info.classList.remove('border-4', 'border-blue-500', 'border-dotted');
+        qPlayer2Info.classList.remove('border-4', 'border-red-500', 'border-dotted');
+        qPlayer1Info.classList.add('border-2', 'border-gray-500');
+        qPlayer2Info.classList.add('border-2', 'border-gray-500');
+
+        // 勝敗が決定したらリマッチプロンプトを表示
+        showRematchPrompt(q_currentPlayer === myPlayerNum);
+
+    } else {
+        if (q_currentPlayer === 1) {
+            qPlayer1Info.classList.remove('border-2', 'border-gray-500', 'border-dotted');
+            qPlayer1Info.classList.add('border-4', 'border-blue-500', 'border-solid');
+            qPlayer2Info.classList.remove('border-4', 'border-gray-500', 'border-solid');
+            qPlayer2Info.classList.add('border-2', 'border-red-500', 'border-dotted');
+        } else {
+            qPlayer2Info.classList.remove('border-2', 'border-gray-500', 'border-dotted');
+            qPlayer2Info.classList.add('border-4', 'border-red-500', 'border-solid');
+            qPlayer1Info.classList.remove('border-4', 'border-gray-500', 'border-solid');
+            qPlayer1Info.classList.add('border-2', 'border-blue-500', 'border-dotted');
+        }
+    }
+
+    // ボタンのアクティブ状態
+    qMoveBtn.classList.toggle('btn-active', currentAction === 'move');
+    qHWallBtn.classList.toggle('btn-active', currentAction === 'h_wall');
+    qVWallBtn.classList.toggle('btn-active', currentAction === 'v_wall');
+    qMoveBtn.classList.toggle('bg-green-500', currentAction === 'move');
+    qHWallBtn.classList.toggle('bg-gray-500', currentAction !== 'h_wall');
+    qVWallBtn.classList.toggle('bg-gray-500', currentAction !== 'v_wall');
+    qMoveBtn.classList.toggle('bg-gray-500', currentAction !== 'move');
+    qHWallBtn.classList.toggle('bg-green-500', currentAction === 'h_wall');
+    qVWallBtn.classList.toggle('bg-green-500', currentAction === 'v_wall');
+}
+
+// === コリドール 座標ユーティリティ ===
+function getQuoridorPixelCoords(col, row) {
+    const x = col * (TILE_SIZE + WALL_THICKNESS) + TILE_SIZE / 2;
+    const y = row * (TILE_SIZE + WALL_THICKNESS) + TILE_SIZE / 2;
+    return { x, y };
+}
+
+function getQuoridorSquareCoords(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const col = Math.floor(x / (TILE_SIZE + WALL_THICKNESS));
+    const row = Math.floor(y / (TILE_SIZE + WALL_THICKNESS));
+
+    return { col, row };
+}
+
+function getQuoridorWallGridCoords(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const unit = TILE_SIZE + WALL_THICKNESS;
+    const col = Math.floor(x / unit);
+    const row = Math.floor(y / unit);
+
+    return { col, row };
+}
+
+// === コリドール イベントリスナー ===
+function setQuoridorAction(action) {
+    currentAction = action;
+    potentialWall = null; // アクション変更でプレビューをクリア
+    updateQuoridorUI();
+    drawQuoridorGame();
+}
+
+function handleQuoridorBoardClick(e) {
+    if (gameOver || q_currentPlayer !== myPlayerNum) return; // 自分のターンでなければ操作不可
+
+    if (currentAction === 'move') {
+        const { col, row } = getQuoridorSquareCoords(e);
+        tryMovePawn(col, row);
+    } else {
+        const { col, row } = getQuoridorWallGridCoords(e);
+        tryPlaceWall(col, row, currentAction === 'h_wall' ? 'horizontal' : 'vertical');
+    }
+}
+
+function handleQuoridorMouseMove(e) {
+    if (gameOver || q_currentPlayer !== myPlayerNum || currentAction === 'move') {
+        potentialWall = null;
+        if (ctx) drawQuoridorGame(); // ホバーが消えたことを反映
+        return;
+    }
+
+    const { col, row } = getQuoridorWallGridCoords(e);
+    if (col > Q_BOARD_SIZE - 2 || row > Q_BOARD_SIZE - 2) { // 8x8 グリッド外
+        potentialWall = null;
+    } else {
+        potentialWall = {
+            col: col,
+            row: row,
+            orientation: currentAction === 'h_wall' ? 'horizontal' : 'vertical'
+        };
+    }
+    drawQuoridorGame();
+}
+
+// === コリドール ゲームロジック ===
+
+function tryMovePawn(toCol, toRow) {
+    const player = (q_currentPlayer === 1) ? player1Pos : player2Pos;
+    const opponent = (q_currentPlayer === 1) ? player2Pos : player1Pos;
+
+    if (isValidPawnMove(player, { x: toCol, y: toRow }, opponent)) {
+        // P2P送信
+        sendData({
+            type: 'quoridor-move',
+            playerNum: q_currentPlayer,
+            toCol: toCol,
+            toRow: toRow
+        });
+
+        // ローカルのポーンを動かす
+        player.x = toCol;
+        player.y = toRow;
+
+        // 勝利判定
+        if (checkQuoridorWin(q_currentPlayer)) {
+            gameOver = true;
+            // q_currentPlayer は勝者のまま
+        } else {
+            switchQuoridorTurn();
+        }
+        updateQuoridorUI();
+        drawQuoridorGame();
+    } else {
+        playBuzzerSound();
+    }
+}
+
+function isValidPawnMove(from, to, opp) {
+    if (to.x < 0 || to.x >= Q_BOARD_SIZE || to.y < 0 || to.y >= Q_BOARD_SIZE) return false;
+    if (to.x === opp.x && to.y === opp.y) return false;
+
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const adx = Math.abs(dx);
+    const ady = Math.abs(dy);
+
+    // 1. 通常の1マス移動
+    if (adx + ady === 1) {
+        return !isWallBlocking(from, to);
+    }
+
+    // 2. 相手を飛び越える
+    if ((adx === 2 && ady === 0) || (adx === 0 && ady === 2)) {
+        const mid = { x: from.x + dx / 2, y: from.y + dy / 2 };
+        if (mid.x !== opp.x || mid.y !== opp.y) return false;
+        return !isWallBlocking(from, mid) && !isWallBlocking(mid, to);
+    }
+
+    // 3. 斜め移動
+    if (adx === 1 && ady === 1) {
+        const oppAdjX = (Math.abs(from.x - opp.x) === 1 && from.y === opp.y);
+        const oppAdjY = (Math.abs(from.y - opp.y) === 1 && from.x === opp.x);
+        if (!oppAdjX && !oppAdjY) return false;
+
+        if (isWallBlocking(opp, to)) return false;
+
+        if (oppAdjX) {
+            const oppBack = { x: opp.x + (opp.x - from.x), y: opp.y };
+            if (!isWallBlocking(opp, oppBack)) return false;
+        } else {
+            const oppBack = { x: opp.x, y: opp.y + (opp.y - from.y) };
+            if (!isWallBlocking(opp, oppBack)) return false;
+        }
+
+        return !isWallBlocking(from, opp);
+    }
+
+    return false;
+}
+
+function isWallBlocking(pos1, pos2) {
+    const dx = pos2.x - pos1.x;
+    const dy = pos2.y - pos1.y;
+
+    try {
+        if (dy === -1) { // 上
+            const r = pos2.y; // 0..7
+            return (horizontalWalls[r][pos1.x] || (pos1.x > 0 && horizontalWalls[r][pos1.x - 1]));
+        }
+        if (dy === 1) { // 下
+            const r = pos1.y; // 0..7
+            return (horizontalWalls[r][pos1.x] || (pos1.x > 0 && horizontalWalls[r][pos1.x - 1]));
+        }
+        if (dx === -1) { // 左
+            const c = pos2.x; // 0..7
+            return (verticalWalls[pos1.y][c] || (pos1.y > 0 && verticalWalls[pos1.y - 1][c]));
+        }
+        if (dx === 1) { // 右
+            const c = pos1.x; // 0..7
+            return (verticalWalls[pos1.y][c] || (pos1.y > 0 && verticalWalls[pos1.y - 1][c]));
+        }
+    } catch (e) {
+        return false;
+    }
+    return false;
+}
+
+
+function tryPlaceWall(col, row, orientation) {
+    if (!isWallPlacementValid(col, row, orientation, false)) {
+        return;
+    }
+
+    // P2P送信
+    sendData({
+        type: 'quoridor-wall',
+        playerNum: q_currentPlayer,
+        col,
+        row,
+        orientation
+    });
+
+    // ローカルの壁を配置
+    if (orientation === 'horizontal') {
+        horizontalWalls[row][col] = true;
+    } else {
+        verticalWalls[row][col] = true;
+    }
+
+    if (q_currentPlayer === 1) {
+        player1Walls--;
+    } else {
+        player2Walls--;
+    }
+
+    switchQuoridorTurn();
+    updateQuoridorUI();
+    drawQuoridorGame();
+}
+
+function isWallPlacementValid(col, row, orientation, isQuickCheck = false) {
+    const wallsLeft = (q_currentPlayer === 1) ? player1Walls : player2Walls;
+    if (wallsLeft <= 0) return false;
+    if (col < 0 || col >= Q_BOARD_SIZE - 1 || row < 0 || row >= Q_BOARD_SIZE - 1) return false;
+
+    if (orientation === 'horizontal') {
+        if (horizontalWalls[row][col]) return false;
+        if (verticalWalls[row][col]) return false;
+        if (col > 0 && horizontalWalls[row][col - 1]) return false; // 重複
+        if (col < Q_BOARD_SIZE - 2 && horizontalWalls[row][col + 1]) return false; // 重複
+    } else { // vertical
+        if (verticalWalls[row][col]) return false;
+        if (horizontalWalls[row][col]) return false;
+        if (row > 0 && verticalWalls[row - 1][col]) return false; // 重複
+        if (row < Q_BOARD_SIZE - 2 && verticalWalls[row + 1][col]) return false; // 重複
+    }
+
+    if (isQuickCheck) return true;
+
+    // 経路探索
+    if (orientation === 'horizontal') horizontalWalls[row][col] = true;
+    else verticalWalls[row][col] = true;
+
+    const p1HasPath = hasPathToGoal(player1Pos, 1);
+    const p2HasPath = hasPathToGoal(player2Pos, 2);
+
+    if (orientation === 'horizontal') horizontalWalls[row][col] = false;
+    else verticalWalls[row][col] = false;
+
+    return p1HasPath && p2HasPath;
+}
+
+function hasPathToGoal(startPos, playerNum) {
+    const goalRow = (playerNum === 1) ? 0 : Q_BOARD_SIZE - 1;
+    const q = [startPos];
+    const visited = new Set();
+    visited.add(`${startPos.x},${startPos.y}`);
+
+    while (q.length > 0) {
+        const pos = q.shift();
+        if (pos.y === goalRow) return true;
+
+        const neighbors = [
+            { x: pos.x, y: pos.y - 1 }, // 上
+            { x: pos.x, y: pos.y + 1 }, // 下
+            { x: pos.x - 1, y: pos.y }, // 左
+            { x: pos.x + 1, y: pos.y }  // 右
+        ];
+
+        for (const n of neighbors) {
+            if (n.x < 0 || n.x >= Q_BOARD_SIZE || n.y < 0 || n.y >= Q_BOARD_SIZE) continue;
+            const nKey = `${n.x},${n.y}`;
+            if (visited.has(nKey)) continue;
+
+            if (!isWallBlocking(pos, n)) {
+                visited.add(nKey);
+                q.push(n);
+            }
+        }
+    }
+    return false;
+}
+
+function checkQuoridorWin(playerNum) {
+    if (playerNum === 1 && player1Pos.y === 0) {
+        return true;
+    }
+    if (playerNum === 2 && player2Pos.y === 8) {
+        return true;
+    }
+    return false;
+}
+
+function switchQuoridorTurn() {
+    q_currentPlayer = (q_currentPlayer === 1) ? 2 : 1;
+    setQuoridorAction('move'); // ターンが切り替わったら「ポーン移動」をデフォルトに
+    playClickSound();
+}
+
+// --- 11. DOM初期化 ---
 function initializeDOMElements() {
+    // 共通
     chatMessagesEl = document.getElementById('chat-messages');
     chatInputEl = document.getElementById('chat-input');
     chatSendBtn = document.getElementById('chat-send-btn');
@@ -2530,20 +3285,58 @@ function initializeDOMElements() {
     nameInput = document.getElementById('name-input');
     playerList = document.getElementById('player-list');
     userNameEl = document.getElementById('user-name');
-    setupLoading = document.getElementById('setup-loading');
     noPlayersMessage = document.getElementById('no-players-message');
     noPlayersImage = document.getElementById('no-players-image');
-    myNameEl = document.getElementById('my-name');
-    opponentNameEl = document.getElementById('opponent-name');
-    statusMessage = document.getElementById('status-message');
-    drawnCardMessageEl = document.getElementById('drawn-card-message');
-    myHandContainer = document.getElementById('my-hand-container');
-    opponentHandContainer = document.getElementById('opponent-hand-container');
+    statusMessage = document.getElementById('status-message'); // 共通ステータス
+
+    // 共通モーダル
     modalOverlay = document.getElementById('modal-overlay');
     modalContent = document.getElementById('modal-content');
     modalTitle = document.getElementById('modal-title');
     modalBody = document.getElementById('modal-body');
     modalButtons = document.getElementById('modal-buttons');
+
+    // ゲーム選択モーダル
+    gameChoiceModalOverlay = document.getElementById('game-choice-modal-overlay');
+    gameChoiceModalTitle = document.getElementById('game-choice-modal-title');
+    gameChoiceModalBody = document.getElementById('game-choice-modal-body');
+    gameChoiceModalButtons = document.getElementById('game-choice-modal-buttons');
+    gameChoiceBabanukiBtn = document.getElementById('game-choice-babanuki');
+    gameChoiceQuoridorBtn = document.getElementById('game-choice-quoridor');
+    gameChoiceCancelBtn = document.getElementById('game-choice-cancel');
+
+    // ゲームUIコンテナ
+    babanukiUI = document.getElementById('babanuki-ui');
+    quoridorUI = document.getElementById('quoridor-ui');
+
+    // ババ抜き用
+    myNameEl = document.getElementById('my-name');
+    opponentNameEl = document.getElementById('opponent-name');
+    drawnCardMessageEl = document.getElementById('drawn-card-message');
+    myHandContainer = document.getElementById('my-hand-container');
+    opponentHandContainer = document.getElementById('opponent-hand-container');
+
+    // コリドール用
+    qPlayer1Info = document.getElementById('q-player1-info');
+    qPlayer1Name = document.getElementById('q-player1-name');
+    qP1Ping = document.getElementById('q-p1-ping');
+    qP1WallsEl = document.getElementById('q-p1-walls');
+    qPlayer2Info = document.getElementById('q-player2-info');
+    qPlayer2Name = document.getElementById('q-player2-name');
+    qP2Ping = document.getElementById('q-p2-ping');
+    qP2WallsEl = document.getElementById('q-p2-walls');
+    qMoveBtn = document.getElementById('q-move-btn');
+    qHWallBtn = document.getElementById('q-h-wall-btn');
+    qVWallBtn = document.getElementById('q-v-wall-btn');
+    canvas = document.getElementById('game-board');
+    if (canvas) { // canvasがnullでないことを確認
+        ctx = canvas.getContext('2d');
+    }
+
+    // 共通 (ゲーム画面)
+    gameChatMessages = document.getElementById('game-chat-messages');
+    gameChatInput = document.getElementById('game-chat-input');
+    gameChatSend = document.getElementById('game-chat-send');
     fileInputEl = document.getElementById('file-input');
     fileSendBtnEl = document.getElementById('file-send-btn');
     fileStatusEl = document.getElementById('file-status');
@@ -2551,8 +3344,9 @@ function initializeDOMElements() {
     voiceLessBtn1.onclick = () => toggleVoiceLess();
     voiceLessBtn2 = document.getElementById('voiceless-mode-button2');
     voiceLessBtn2.onclick = () => toggleVoiceLess();
-    voiceLessBtn3 = document.getElementById('voiceless-mode-button3');
-    voiceLessBtn3.onclick = () => toggleVoiceLess();
+
+    // コリドール用キャンバスのリサイズイベント
+    window.addEventListener('resize', resizeQuoridorCanvas);
 }
 
 document.addEventListener('DOMContentLoaded', () => {

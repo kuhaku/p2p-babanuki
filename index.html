@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ババ活 (P2P ババ抜き)</title>
+    <title>ババ活 (P2P オンラインゲーム対戦)</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Supabase Client CDN -->
@@ -17,6 +17,8 @@
         body {
             font-family: "MS Gothic", "Inter", "Hiragino Kaku Gothic ProN", sans-serif;
             color: white;
+            /* スマホでの操作性向上 */
+            touch-action: manipulation;
         }
 
         /* カードのスタイル */
@@ -32,7 +34,7 @@
             justify-content: center;
             align-items: center;
 
-            /* フォントサイズも clamp() でレスポンシブにします */
+            /* フォントサイズも clamp() でレスポンシブに */
             font-size: clamp(1.2rem, 4vw, 1.8rem);
             font-weight: bold;
             box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
@@ -60,10 +62,8 @@
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 20'%3E%3Cpath d='M 0 5 L 10 0 L 20 5 L 30 0 L 40 5 L 40 10 L 30 5 L 20 10 L 10 5 L 0 10 Z' fill='black' /%3E%3C/svg%3E");
             /* 3. 繰り返し方法 (横方向(x)にのみリピート) */
             background-repeat: repeat-x;
-
             /* 4. 表示位置 */
             background-position: center 85%;
-
             /*
             * 5. 模様のサイズ
             */
@@ -78,25 +78,33 @@
             color: #E53E3E;
         }
 
+        /* --- コリドール用スタイル --- */
+        #game-board {
+            cursor: pointer;
+            border: 2px solid #333;
+            background-color: #f0d9b5;
+            /* 盤の色 */
+        }
+
         /* モーダル */
-        #modal-overlay {
+        #modal-overlay,
+        #game-choice-modal-overlay {
             background-color: rgba(0, 0, 0, 0.7);
         }
     </style>
 </head>
 
-<body class="text-gray-800 w-full" style="background-color: #004040;">
+<div class="text-gray-800 w-full" style="background-color: #004040;">
 
     <div id="app" class="container min-h-screen mx-auto md:mx-4 sm:mx-1 w-full">
 
         <!-- 画面 1: 名前入力 & 接続 -->
         <div id="setup-screen" class="p-6">
-            <h1 class="text-2xl font-bold mb-6 text-center text-white">ババ活 (P2P ババ抜き)</h1>
-
-            <div class="mb-4">
+            <h1 class="text-2xl font-bold text-center text-white">P2P ババ活</h1>
+            <div class="mb-4 text-white border-gray-300 py-2">
                 <label for="name-input" class="block text-sm font-medium text-white mb-1">貴殿の名前:</label>
                 <input type="text" id="name-input"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    class="w-full px-3 py-2 border text-black border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
                     placeholder="プレイヤー名">
             </div>
 
@@ -104,12 +112,13 @@
                 class="w-full bg-green-600 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-green-700 transition duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50">
                 待合室に入る
             </button>
-            <button id="voiceless-mode-button1"
-                class="bg-gray-600 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-gray-700 transition duration-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50">
-                無声にする
-            </button>
-            <div id="setup-loading" class="hidden text-center mt-4">
-                <p class="text-green-600 animate-pulse">Supabaseに接続中...</p>
+            <div class="border-t border-gray-300 py-2 my-3">
+                <h2 class="text-white">お知らせ</h2>
+                <ul>
+                    <li class="text-white">2025/11/14: コリドールを追加しましたヽ(´ー｀)ノ</li>
+                    <li class="text-white">2025/11/13: ファイル共有機能追加ヽ(´ー｀)ノ</li>
+                    <li class="text-white">2025/11/6: 初公開ヽ(´ー｀)ノ</li>
+                </ul>
             </div>
         </div>
 
@@ -159,11 +168,11 @@
                     </div>
                     <div class="flex justify-between items-center md:space-x-2 space-x-1">
                         <input id="chat-input" type="text" placeholder="メッセージを入力"
-                            class="flex flex-grow border border-gray-300 rounded-md md:px-3 px-1 py-2 focus:outline-none focus:ring-green-500 focus:border-green-500">
+                            class="flex flex-grow border border-gray-300 rounded-md md:px-3 px-1 py-2 focus:outline-none focus:ring-green-500 focus:border-green-500 md:text-base text-xs">
                         <button id="chat-send-btn"
                             class="flex flex-nowrap bg-green-600 text-white font-bold md:text-base text-xs md:px-4 px-1 py-2 rounded-md hover:bg-green-700 transition">投稿</button>
                         <button id="flex chat-input-clear-btn"
-                            class="flex-nowrap bg-green-800 text-white font-semibold md:text-base text-xs md:px-4 px-1 py-2 rounded-lg shadow hover:bg-green-900 transition"
+                            class="flex-nowrap bg-gray-600 text-white font-semibold md:text-base text-xs md:px-4 px-1 py-2 rounded-lg shadow hover:bg-gray-700 transition"
                             onclick="document.getElementById('chat-input').value = '';">消す</button>
                     </div>
                     <div class="my-2 flex justify-center">
@@ -187,15 +196,13 @@
                             onclick="gyouzaNoOhSho();">将</button>
                     </div>
                 </div>
-                <div class="flex items-center">
-                    <p><span class="bg-sky-600 text-white rounded-md p-2 mx-2"><a
+                <div class="flex justify-left items-center border-t lg:border-none border-gray-300 py-2">
+                    <p><span class="bg-sky-600 lg:text-sm text-xs text-white rounded-md p-2 mx-2"><a
                                 href="https://x.com/intent/tweet?text=%E3%83%90%E3%83%90%E6%B4%BB%E7%9B%B8%E6%89%8B%E5%8B%9F%E9%9B%86%E4%B8%AD%28%3B%C2%B4%D0%94%60%29%20%0Ahttps%3A%2F%2Fkuhaku.github.io%2Fp2p-babanuki%2F%0A%23%E3%83%90%E3%83%90%E6%B4%BB%20%23%E5%90%88%E6%B3%95%20%23%E3%83%84%E3%83%BC%E3%82%B7%E3%83%A7%E3%83%83%E3%83%88%20%23%E7%A7%98%E5%AF%86%20%23%E5%85%B1%E6%9C%89">ツイッター</a></span>
-                        <span class="bg-green-700 text-white rounded-md p-2 mx-2"><a
-                                href="https://social-plugins.line.me/lineit/share?url=https%3A%2F%2Fkuhaku.github.io%2Fp2p-babanuki%2F">LINE</a></span>
                     </p>
-                    <button id="voiceless-mode-button2"
-                        class="bg-gray-600 text-white font-bold p-2 mx-2 rounded-lg shadow-md hover:bg-gray-700 transition duration-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50">
-                        無声にする
+                    <button id="voiceless-mode-button1"
+                        class="bg-gray-600 lg:text-sm text-xs text-white font-bold p-2 mx-2 rounded-lg shadow-md hover:bg-gray-700 transition duration-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 whitespace-nowrap">
+                        無声する
                     </button>
                 </div>
             </div>
@@ -204,81 +211,128 @@
         <!-- 画面 3: ゲーム画面 -->
         <div id="game-screen" class="hidden" style="background-color: #004040;">
             <div class="flex justify-between items-center mt-2 mb-2">
-                <h2 id="status-message" class="text-2xl font-bold text-white">接続待機中...</h2>
+                <h2 id="status-message" class="text-2xl font-bold text-white">
+                    接続待機中...
+                </h2>
                 <button id="leave-game-btn"
                     class="bg-red-600 text-white font-semibold py-2 px-4 rounded-lg shadow hover:bg-red-700 transition duration-300">
                     ババ活終了
                 </button>
             </div>
-
+            <!-- ゲームUI -->
             <div class="md:grid md:grid-cols-2 gap-6">
-                <div>
-                    <!-- 相手の手札 -->
-                    <div class="mb-4 p-2 bg-green-800 rounded-lg shadow-lg">
-                        <h3 id="opponent-name" class="text-white lg:text-lg font-semibold mb-2 text-center">敵</h3>
-                        <div id="opponent-hand-container" class="flex flex-wrap justify-center min-h-[130px]">
-                            <!-- 相手のカード（裏）がここに入る -->
+                <!-- ババ抜きUI -->
+                <div id="babanuki-ui" class="hidden">
+                    <div>
+                        <!-- 相手の手札 -->
+                        <div class="mb-4 p-2 bg-green-800 rounded-lg shadow-lg">
+                            <h3 id="opponent-name" class="text-white lg:text-lg font-semibold mb-2 text-center">敵</h3>
+                            <div id="opponent-hand-container" class="flex flex-wrap justify-center min-h-[130px]">
+                                <!-- 相手のカード（裏）がここに入る -->
+                            </div>
                         </div>
-                    </div>
 
-                    <!-- 引いたカード情報 (自分のみ表示) -->
-                    <div id="drawn-card-message"
-                        class="text-center text-yellow-300 md:text-lg font-semibold my-2 min-h-[25px]">
-                        <!-- 引いたカードのメッセージがここに入る -->
-                    </div>
+                        <!-- 引いたカード情報 (自分のみ表示) -->
+                        <div id="drawn-card-message"
+                            class="text-center text-yellow-300 md:text-lg font-semibold my-2 min-h-[25px]">
+                            <!-- 引いたカードのメッセージがここに入る -->
+                        </div>
 
-                    <!-- 自分の手札 -->
-                    <div class="mt-4 p-2 bg-green-800 rounded-lg shadow-lg">
-                        <h3 id="my-name" class="text-white md:text-lg font-semibold mb-2 text-center">自分</h3>
-                        <div id="my-hand-container" class="flex flex-wrap justify-center min-h-[130px]">
-                            <!-- 自分のカードがここに入る -->
+                        <!-- 自分の手札 -->
+                        <div class="mt-4 p-2 bg-green-800 rounded-lg shadow-lg">
+                            <h3 id="my-name" class="text-white md:text-lg font-semibold mb-2 text-center">自分</h3>
+                            <div id="my-hand-container" class="flex flex-wrap justify-center min-h-[130px]">
+                                <!-- 自分のカードがここに入る -->
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 対戦部屋チャット -->
-                <div>
-                    <div>
-                        <h3 class="md:text-lg font-semibold text-white mb-2">対戦部屋チャット</h3>
-                        <div class="my-2 flex justify-center md:block">
-                            <button
-                                class="bg-red-900 text-white font-bold lg:text-base md:text-sm text-xs md:mx-3 mx-1 md:px-2 px-1 py-1 rounded-md hover:bg-red-950 active:bg-white active:text-red-950 transition"
-                                onclick="sendReaction('ヽ(;`Д´)ﾉ');">ヽ(;`Д´)ﾉ</button>
-                            <button
-                                class="bg-green-900 text-white font-bold lg:text-base md:text-sm text-xs md:mx-3 mx-1 md:px-2 px-1 py-1 rounded-md hover:bg-green-950 active:bg-white active:text-green-950 transition"
-                                onclick="sendReaction('(;´Д`)');">(;´Д`)</button>
-                            <button
-                                class="bg-yellow-900 text-white font-bold lg:text-base md:text-sm text-xs md:mx-3 mx-1 md:px-2 px-1 py-1 rounded-md hover:bg-yellow-950 active:bg-white active:text-yellow-950 transition"
-                                onclick="sendReaction('ヽ(´ー｀)ノ');">ヽ(´ー｀)ノ</button>
-                            <button
-                                class="bg-orange-900 text-white font-bold lg:text-base md:text-sm text-xs md:mx-3 mx-1 md:px-2 px-1 py-1 rounded-md hover:bg-orange-950 active:bg-white active:text-orange-950 transition"
-                                onclick="sendReaction('(^Д^)');">(^Д^)</button>
-                        </div>
-                        <div id="game-chat-messages"
-                            class="bg-green-950 h-48 overflow-y-auto rounded-md p-3 mb-3 text-sm shadow-lg">
-                        </div>
-                        <div class="flex space-x-2">
-                            <input id="game-chat-input" type="text" placeholder="メッセージを入力"
-                                class="flex-grow border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-green-500 focus:border-green-500">
-                            <button id="game-chat-send"
-                                class="bg-green-600 text-white font-bold px-4 py-2 rounded-md hover:bg-green-700 transition"
-                                onclick="sendGameChatMessage();">投稿</button>
-                            <button id="game-chat-input-clear-btn"
-                                class="bg-green-800 text-white font-semibold px-4 py-2 rounded-lg shadow hover:bg-green-900 transition"
-                                onclick="document.getElementById('game-chat-input').value = '';">消す</button>
-                        </div>
-                        <div id="file-transfer-container" class="md:text-base font-semibold text-white mb-2 py-2">
-                            <h4 class="text-base text-white font-semibold mb-2">ファイルを送る</h4>
-                            <div class="flex justify-between items-center space-x-1">
-                                <input type="file" id="file-input"
-                                    class="text-white text-sm file:mr-2 file:py-1 file:px-1 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200 w-full"
-                                    disabled>
-                                <button id="file-send-btn"
-                                    class="bg-green-600 text-white font-bold px-1 py-2 rounded-md hover:bg-green-700 transition"
-                                    disabled>送信</button>
+                <!-- コリドールUI -->
+                <div id="quoridor-ui" class="hidden">
+                    <!-- プレイヤー情報 -->
+                    <div class="flex grid-cols-2 justify-between items-center py-2 space-x-1">
+                        <div id="q-player1-info" class="p-3 rounded-lg border-solid border-4 border-blue-500">
+                            <div class="text-white md:text-sm text-xs"><span id="q-p1-ping"
+                                    class="hidden text-blue-500 animate-ping">●</span><span id="q-player1-name">プレイヤー
+                                    1</span>
                             </div>
-                            <div id="file-status" class="text-sm text-yellow-300 mt-2 min-h-[20px]"></div>
+                            <div class="text-white md:text-sm text-xs">壁残り: <span id="q-p1-walls">10</span>
+                            </div>
                         </div>
+                        <div id="q-player2-info" class="p-3 rounded-lg border-dotted border-4 border-red-500">
+                            <div class="text-white md:text-sm text-xs"><span id="q-p2-ping"
+                                    class="hidden text-red-500 animate-ping">●</span><span id="q-player2-name">プレイヤー
+                                    2</span>
+                            </div>
+                            <div class="text-white md:text-sm text-xs">壁残り: <span id="q-p2-walls">10</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- アクション選択 -->
+                    <div class="flex grid-cols-3 justify-center space-x-2 space-y-2 sm:space-y-0">
+                        <button id="q-move-btn"
+                            class="btn-active md:text-sm text-xs px-2 py-2 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 focus:outline-none">
+                            駒を動かす
+                        </button>
+                        <button id="q-h-wall-btn"
+                            class="md:text-sm text-xs px-2 py-2 bg-gray-500 text-white font-semibold rounded-lg shadow-md hover:bg-gray-600 focus:bg-green-500 focus:outline-none">
+                            横の壁配置
+                        </button>
+                        <button id="q-v-wall-btn"
+                            class="md:text-sm text-xs px-2 py-2 bg-gray-500 text-white font-semibold rounded-lg shadow-md hover:bg-gray-600 focus:bg-green-500 focus:outline-none">
+                            縦の壁配置
+                        </button>
+                    </div>
+
+                    <!-- ゲームボード -->
+                    <div class="aspect-square w-full max-w-xl mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
+                        <canvas id="game-board"></canvas>
+                    </div>
+                </div>
+
+                <!-- 共通UI (チャット・ファイル送信・ロビー情報) -->
+                <div id="common-right-column" class="mt-4 md:mt-0">
+                    <h3 class="md:text-lg font-semibold text-white mb-2">対戦部屋チャット</h3>
+                    <div class="my-2 flex justify-center md:block">
+                        <button
+                            class="bg-red-900 text-white font-bold lg:text-base md:text-sm text-xs md:mx-3 mx-1 md:px-2 px-1 py-1 rounded-md hover:bg-red-950 active:bg-white active:text-red-950 transition"
+                            onclick="sendReaction('ヽ(;`Д´)ﾉ');">ヽ(;`Д´)ﾉ</button>
+                        <button
+                            class="bg-green-900 text-white font-bold lg:text-base md:text-sm text-xs md:mx-3 mx-1 md:px-2 px-1 py-1 rounded-md hover:bg-green-950 active:bg-white active:text-green-950 transition"
+                            onclick="sendReaction('(;´Д`)');">(;´Д`)</button>
+                        <button
+                            class="bg-violet-900 text-white font-bold lg:text-base md:text-sm text-xs md:mx-3 mx-1 md:px-2 px-1 py-1 rounded-md hover:bg-violet-950 active:bg-white active:text-violet-950 transition"
+                            onclick="sendReaction('ヽ(´ー｀)ノ');">ヽ(´ー｀)ノ</button>
+                        <button
+                            class="bg-yellow-600 text-white font-bold lg:text-base md:text-sm text-xs md:mx-3 mx-1 md:px-2 px-1 py-1 rounded-md hover:bg-yellow-950 active:bg-white active:text-yellow-950 transition"
+                            onclick="sendReaction('(^Д^)');">(^Д^)</button>
+                    </div>
+                    <div id="game-chat-messages"
+                        class="bg-green-950 h-48 overflow-y-auto rounded-md p-3 mb-3 text-sm shadow-lg">
+                    </div>
+                    <div class="flex space-x-2">
+                        <input id="game-chat-input" type="text" placeholder="メッセージを入力"
+                            class="lg:text-sm text-xs flex-grow border border-gray-300 rounded-md px-2 py-2 focus:outline-none focus:ring-green-500 focus:border-green-500 text-gray-800">
+                        <button id="game-chat-send"
+                            class="lg:text-sm text-xs bg-green-600 text-white font-bold px-2 py-2 rounded-md hover:bg-green-700 transition whitespace-nowrap"
+                            onclick="sendGameChatMessage();">投稿</button>
+                        <button id="game-chat-input-clear-btn"
+                            class="lg:text-sm text-xs bg-gray-600 text-white font-semibold px-2 py-2 rounded-lg shadow hover:bg-gray-700 transition whitespace-nowrap"
+                            onclick="document.getElementById('game-chat-input').value = '';">消す</button>
+                    </div>
+                    <div id="file-transfer-container" class="md:text-base font-semibold text-white mb-2 py-2">
+                        <h4 class="text-base text-white font-semibold mb-2">ファイルを送る</h4>
+                        <div class="flex grid-cols-2 justify-between items-center">
+                            <input type="file" id="file-input"
+                                class="text-white text-xs file:mr-2 file:py-1 file:px-1 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200 w-full"
+                                disabled>
+                            <button id="file-send-btn"
+                                class="bg-green-600 text-white text-xs font-bold px-1 py-2 rounded-md hover:bg-green-700 transition whitespace-nowrap"
+                                disabled>送信</button>
+                        </div>
+                        <div id="file-status" class="text-xs text-yellow-300 mt-2 min-h-[20px]"></div>
                     </div>
                     <div id="active-lobby-users" class="border-t border-gray-300 mt-4 pt-4">
                         <h3 class="text-lg font-semibold text-white mb-2">待合室待機者</h3>
@@ -286,29 +340,82 @@
                         <ul id="lobby-user-list" class="pl-0 text-white text-sm"></ul>
                     </div>
                     <div class="border-t border-gray-300 mt-4 pt-4">
-                        <button id="voiceless-mode-button3"
-                            class="bg-gray-600 text-white font-bold p-2 mx-2 rounded-lg shadow-md hover:bg-gray-700 transition duration-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50">
-                            無声にする
+                        <button id="voiceless-mode-button2"
+                            class="bg-gray-600 text-white text-sm font-bold p-2 mx-2 rounded-lg shadow-md hover:bg-gray-700 transition duration-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 whitespace-nowrap">
+                            無声する
                         </button>
                     </div>
                 </div>
+
+                <!-- 顔文字リアクション表示用 -->
                 <div id="emoticon-reaction-field"
                     class="hidden fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white font-extrabold z-100 whitespace-nowrap">
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- モーダル (ダイアログ) -->
-    <div id="modal-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center p-2">
-        <div id="modal-content" class="bg-white rounded-lg shadow-2xl md:p-6 p-2 md:max-w-md max-w-sm w-full">
-            <h3 id="modal-title" class="md:text-2xl text-lg text-black font-bold mb-4"></h3>
-            <p id="modal-body" class="text-gray-700 mb-6 md:text-base text-sm"></p>
-            <div id="modal-buttons" class="flex justify-center space-x-3">
-                <!-- ボタンがここに入る -->
+        <!-- モーダル (ダイアログ) -->
+        <div id="modal-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center p-2">
+            <div id="modal-content" class="bg-white rounded-lg shadow-2xl md:p-6 p-2 md:max-w-md max-w-sm w-full">
+                <h3 id="modal-title" class="md:text-2xl text-lg text-black font-bold mb-4"></h3>
+                <p id="modal-body" class="text-gray-700 mb-6 md:text-base text-sm"></p>
+                <div id="modal-buttons" class="flex justify-center space-x-3">
+                    <!-- ボタンがここに入る -->
+                </div>
+            </div>
+        </div>
+
+        <!-- ゲーム選択モーダル -->
+        <div id="game-choice-modal-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center p-2">
+            <div id="game-choice-modal-content" class="bg-white rounded-lg shadow-2xl p-6 max-w-sm w-full">
+                <h3 id="game-choice-modal-title" class="text-2xl text-black font-bold mb-4">ゲーム選択</h3>
+                <p id="game-choice-modal-body" class="text-gray-700 mb-6">どのゲームに招待しますか？</p>
+                <div id="game-choice-modal-buttons" class="flex flex-col space-y-3">
+                    <button id="game-choice-babanuki"
+                        class="bg-green-600 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-green-700 transition duration-300">
+                        ババ抜き
+                    </button>
+                    <button id="game-choice-quoridor"
+                        class="bg-violet-600 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-violet-700 transition duration-300">
+                        コリドール
+                    </button>
+                    <hr>
+                    <button id="game-choice-cancel"
+                        class="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-gray-600 transition duration-300">
+                        キャンセル
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="text-white">
+            <h2 class="underline cursor-pointer"
+                onclick="document.getElementById('quoridor-rule').classList.remove('hidden');">
+                コリドールのルール説明▼</h2>
+            <div id="quoridor-rule" class="hidden">
+                <h3 class="py-4 text-xl font-bold text-yellow-400">ゲームの目的</h3>
+                <p>自分の駒を動かして、スタート地点の<strong>反対側のゴールライン（一番奥の列）</strong>に、相手より先に到達させることです。</p>
+                <p>ただし、壁が設置されているところに駒を動かすことはできません。</p>
+
+                <h3 class="py-4 text-xl font-bold text-yellow-400"> 自分の番にできること</h3>
+                <p>自分の番が来たら、駒を動かすか壁を設置することができます。</p>
+                <h4 class="py-2 pl-5 text-white">駒を動かす</h4>
+                <ul class="list-disc list-inside">
+                    <li>前後左右のどれかに1マスだけ進めます（斜め方向はダメ）。</li>
+                    <li>相手の駒と隣り合った場合には、ジャンプして相手を飛び越えて2マス進むことができます。</li>
+                </ul>
+                <h4 class="py-2 pl-5 text-white">壁を設置</h4>
+                <ul class="list-disc list-inside">
+                    <li>相手の進路を邪魔をするために、マスとマスの間に「壁」を1枚設置できます。</li>
+                    <li>壁は一度置いたら動かせません。</li>
+                    <li>壁は横向きに設定したり縦向きに設置したりできます。</li>
+                    <li>壁は10枚までしか設置できません。</li>
+                </ul>
+                <h3 class="py-4 text-xl font-bold text-yellow-400">一番大事なルール</h3>
+                <p>壁で相手を妨害するのはOKだけど、相手が絶対にゴールできなくなるような「閉じ込め」は禁止です。必ずどこか1ヶ所はゴールへの道を残さなくてはいけません。</p>
             </div>
         </div>
     </div>
+</div>
 </body>
 
 </html>

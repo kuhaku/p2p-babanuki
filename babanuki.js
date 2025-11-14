@@ -49,7 +49,10 @@ let gameResultSent = false;
 let ohshoCounter = 0;
 
 // 暇つぶし用画像
-const GIF_ANIMES = ["misao003452.gif", "misao012134.gif", "misao056051.gif", "tanosi.gif", "tanosi2.gif"]
+const GIF_ANIMES = [
+    'bgcg.gif', 'misao003452.gif', 'misao003458.gif', 'misao012134.gif', 'misao014250.gif',
+    'misao056051.gif', 'tanosi.gif', 'tanosi2.gif', 'yukarin3382.gif', 'yukarin3731.gif',
+]
 
 // 顔文字リアクション描画用
 const EMOTICON_REACTION_START_FONT_SIZE = 20; // 開始時のフォントサイズ (px)

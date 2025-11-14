@@ -129,7 +129,7 @@
                     <h2 class="text-2xl font-bold text-white">ババ活待合室</h2>
                     <!-- 低解像度用退出ボタン (mdで非表示) -->
                     <button
-                        class="bg-gray-400 text-white font-semibold py-1 px-3 rounded-lg shadow hover:bg-gray-500 text-sm whitespace-nowrap md:hidden"
+                        class="bg-gray-600 text-white font-semibold py-1 px-3 rounded-lg shadow hover:bg-gray-700 text-sm whitespace-nowrap md:hidden"
                         onclick="leaveLobby();">
                         退出
                     </button>
@@ -140,7 +140,7 @@
                     </p>
                     <!-- 高解像度用退出ボタン (md未満で非表示) -->
                     <button
-                        class="hidden bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg shadow hover:bg-gray-500 whitespace-nowrap md:block"
+                        class="hidden bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg shadow hover:bg-gray-700 whitespace-nowrap md:block"
                         onclick="leaveLobby();">
                         退出
                     </button>
@@ -215,7 +215,7 @@
                     接続待機中...
                 </h2>
                 <button id="leave-game-btn"
-                    class="bg-red-600 text-white font-semibold py-2 px-4 rounded-lg shadow hover:bg-red-700 transition duration-300">
+                    class="bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg shadow hover:bg-gray-700 transition duration-300">
                     ババ活終了
                 </button>
             </div>
@@ -393,25 +393,25 @@
                 コリドールのルール説明 ▼</h2>
             <div id="quoridor-rule" class="hidden">
                 <h3 class="py-4 text-xl font-bold text-yellow-400">ゲームの目的</h3>
-                <p>自分の駒を動かして、スタート地点の<strong>反対側のゴールライン（一番奥の列）</strong>に、相手より先に到達させることです。</p>
-                <p>ただし、壁が設置されているところに駒を動かすことはできません。</p>
+                <p>駒を動かして、スタート地点から反対側のゴールライン (正反対の列) に到達させると勝ちになるボードゲームです。</p>
+                <p>相手の進路を邪魔する壁をどのように設置するかが勝敗の鍵となります。</p>
 
                 <h3 class="py-4 text-xl font-bold text-yellow-400"> 自分のターン中にできること</h3>
                 <p>自分の番が来たら、駒を動かすか壁を設置することができます。</p>
-                <h4 class="py-2 pl-5 text-white">駒を動かす</h4>
+                <h4 class="py-2 pl-5 text-white underline">駒を動かす</h4>
                 <ul class="list-disc list-inside">
                     <li>前後左右のどれかに1マスだけ進めます（斜め方向はダメ）。</li>
                     <li>相手の駒と隣り合った場合には、ジャンプして相手を飛び越えて2マス進むことができます。</li>
                 </ul>
-                <h4 class="py-2 pl-5 text-white">壁を設置</h4>
+                <h4 class="py-2 pl-5 text-white underline">壁を設置</h4>
                 <ul class="list-disc list-inside">
                     <li>相手の進路を邪魔をするために、マスとマスの間に「壁」を1枚設置できます。</li>
                     <li>壁は一度置いたら動かせません。</li>
-                    <li>壁は横向きに設定したり縦向きに設置したりできます。</li>
+                    <li>壁は横向きや縦向きに設置できます。</li>
                     <li>壁は10枚までしか設置できません。</li>
                 </ul>
                 <h3 class="py-4 text-xl font-bold text-yellow-400">一番大事なルール</h3>
-                <p>壁で相手を妨害するのはOKだけど、相手が絶対にゴールできなくなるような「閉じ込め」は禁止です。必ずどこか1ヶ所はゴールへの道を残さなくてはいけません。</p>
+                <p>壁で相手を妨害するのはOKだけど、相手が絶対にゴールできなくなるような「閉じ込め」行為は禁止です。必ずどこか1ヶ所はゴールへの道を残さなくてはいけません。</p>
             </div>
         </div>
     </div>

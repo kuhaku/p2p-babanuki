@@ -70,7 +70,7 @@ const RIGHT_HANDS = ["ノ", "ﾉ", "/", "へ", "ﾍ", "v", ">", "σ", "y-~~", "o
 
 // HTML要素
 let setupScreen, lobbyScreen, gameScreen, joinLobbyBtn, leaveGameBtn,
-    nameInput, userNameEl, playerList, noPlayersMessage, noPlayersImage,
+    nameInput, userNameEl, playerList, noPlayersDiv, noPlayersImage,
     myNameEl, opponentNameEl, statusMessage, drawnCardMessageEl, myHandContainer, opponentHandContainer,
     modalOverlay, modalContent, modalTitle, modalBody, modalButtons,
     voiceLessBtn1, voiceLessBtn2;
@@ -127,6 +127,7 @@ function escapeChar(str) {
 // --- サウンドエンジン ---
 let synth; // シンセサイザー (Tone.js)
 let buzzerSynth; // ブザー音
+let audioStarted = false;
 
 /**
  * Tone.jsの初期化 (ユーザー操作時に呼び出す)
@@ -315,6 +316,36 @@ function playChatTransmissionSound() {
         synth.triggerAttackRelease("A2", "8n", now);
     } catch (e) {
         console.error("playInviteSound error:", e);
+    }
+}
+
+// 鍵盤楽器を鳴らす関数
+function playNote(event) {
+    // クリックイベントの伝播を停止
+    event.stopPropagation();
+
+    // ユーザーの操作でオーディオコンテキストを開始 (ブラウザの自動再生ポリシー対策)
+    if (!audioStarted && Tone.context.state !== 'running') {
+        Tone.start();
+        audioStarted = true;
+        console.log('Audio context started!');
+    }
+
+    // データ属性から音階を取得
+    const note = event.target.dataset.note;
+
+    if (note) {
+        // 音を鳴らす (mousedown / touchstart)
+        synth.triggerAttack(note);
+    }
+}
+
+// 鍵盤楽器の音を止める関数
+function stopNote(event) {
+    event.stopPropagation();
+    const note = event.target.dataset.note;
+    if (note) {
+        synth.triggerRelease(note);
     }
 }
 
@@ -1016,8 +1047,7 @@ function renderLobby(presenceState) {
     // speakText('Windowsを起動するわよ！', 1.1, 1.0);
 
     playerList.innerHTML = ''; // リストをクリア
-    noPlayersMessage.classList.add('hidden');
-    noPlayersImage.classList.add('hidden');
+    noPlayersDiv.classList.add('hidden');
 
     let playerCount = 0;
 
@@ -1073,10 +1103,9 @@ function renderLobby(presenceState) {
 
     // プレイヤーリストが空の場合
     if (playerCount === 0) {
-        noPlayersMessage.classList.remove('hidden');
+        noPlayersDiv.classList.remove('hidden');
         imageFileName = GIF_ANIMES[Math.floor(Math.random() * GIF_ANIMES.length)];
         noPlayersImage.innerHTML = `<img src="img/${imageFileName}">`;
-        noPlayersImage.classList.remove('hidden');
     }
 }
 
@@ -3376,7 +3405,7 @@ function initializeDOMElements() {
     nameInput = document.getElementById('name-input');
     playerList = document.getElementById('player-list');
     userNameEl = document.getElementById('user-name');
-    noPlayersMessage = document.getElementById('no-players-message');
+    noPlayersDiv = document.getElementById('no-palyers-block');
     noPlayersImage = document.getElementById('no-players-image');
     statusMessage = document.getElementById('status-message'); // 共通ステータス
 
@@ -3438,6 +3467,27 @@ function initializeDOMElements() {
 
     // コリドール用キャンバスのリサイズイベント
     window.addEventListener('resize', resizeQuoridorCanvas);
+
+    // 鍵盤楽器の設定
+    // すべてのキー要素を取得
+    const keys = document.querySelectorAll('.key');
+    // 各キーにイベントリスナーを割り当て
+    keys.forEach(key => {
+        // 押し始めのイベント
+        key.addEventListener('mousedown', playNote);
+        key.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            playNote(e);
+        });
+
+        // 離した時のイベント
+        key.addEventListener('mouseup', stopNote);
+        key.addEventListener('mouseleave', stopNote); // キーからマウスが外れた時
+        key.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            stopNote(e);
+        });
+    });
 }
 
 document.addEventListener('DOMContentLoaded', () => {

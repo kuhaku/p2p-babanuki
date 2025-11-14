@@ -173,14 +173,71 @@
                 <!-- 左カラム: プレイヤーリスト -->
                 <div>
                     <p class="mb-4 text-white">ババ活相手を選んでください</p>
-                    <p id="no-players-message" class="hidden font-semibold text-yellow-300 text-center my-2">
-                        誰もいません(^Д^)
-                    </p>
-                    <p id="no-players-image" class="hidden flex justify-center">
-                    </p>
+                    <div id="no-palyers-block" class="hidden">
+                        <p id="no-players-message" class="font-semibold text-yellow-300 text-center my-2">
+                            誰もいません(^Д^)
+                        </p>
+                        <p id="no-players-image" class="flex justify-center">
+                        </p>
+                        <button id="keyboard-toggle-button" class="text-white bg-black rounded-lg p-1 m-1"
+                            onclick="document.getElementById('keyboard-container').classList.toggle('hidden');">鍵盤楽器</button>
+                        <!-- キーボード機能 -->
+                        <div id="keyboard-container" class="hidden flex shadow-2xl rounded-lg overflow-hidden">
+
+                            <!-- C4 (白鍵) -->
+                            <div class="key white w-12 sm:w-16 h-48 sm:h-64 bg-white border-2 border-gray-700 rounded-b-lg shadow-lg relative cursor-pointer transition-colors duration-75 active:bg-gray-200"
+                                data-note="C4">
+                                <!-- C#4 (黒鍵) -->
+                                <div class="key black w-8 sm:w-10 h-32 sm:h-40 bg-gray-900 border-2 border-gray-700 absolute top-0 -right-4 sm:-right-5 z-10 rounded-b-md shadow-xl cursor-pointer transition-colors duration-75 active:bg-gray-700"
+                                    data-note="C#4"></div>
+                            </div>
+
+                            <!-- D4 (白鍵) -->
+                            <div class="key white w-12 sm:w-16 h-48 sm:h-64 bg-white border-2 border-gray-700 rounded-b-lg shadow-lg relative cursor-pointer transition-colors duration-75 active:bg-gray-200"
+                                data-note="D4">
+                                <!-- D#4 (黒鍵) -->
+                                <div class="key black w-8 sm:w-10 h-32 sm:h-40 bg-gray-900 border-2 border-gray-700 absolute top-0 -right-4 sm:-right-5 z-10 rounded-b-md shadow-xl cursor-pointer transition-colors duration-75 active:bg-gray-700"
+                                    data-note="D#4"></div>
+                            </div>
+
+                            <!-- E4 (白鍵) - 黒鍵なし -->
+                            <div class="key white w-12 sm:w-16 h-48 sm:h-64 bg-white border-2 border-gray-700 rounded-b-lg shadow-lg relative cursor-pointer transition-colors duration-75 active:bg-gray-200"
+                                data-note="E4"></div>
+
+                            <!-- F4 (白鍵) -->
+                            <div class="key white w-12 sm:w-16 h-48 sm:h-64 bg-white border-2 border-gray-700 rounded-b-lg shadow-lg relative cursor-pointer transition-colors duration-75 active:bg-gray-200"
+                                data-note="F4">
+                                <!-- F#4 (黒鍵) -->
+                                <div class="key black w-8 sm:w-10 h-32 sm:h-40 bg-gray-900 border-2 border-gray-700 absolute top-0 -right-4 sm:-right-5 z-10 rounded-b-md shadow-xl cursor-pointer transition-colors duration-75 active:bg-gray-700"
+                                    data-note="F#4"></div>
+                            </div>
+
+                            <!-- G4 (白鍵) -->
+                            <div class="key white w-12 sm:w-16 h-48 sm:h-64 bg-white border-2 border-gray-700 rounded-b-lg shadow-lg relative cursor-pointer transition-colors duration-75 active:bg-gray-200"
+                                data-note="G4">
+                                <!-- G#4 (黒鍵) -->
+                                <div class="key black w-8 sm:w-10 h-32 sm:h-40 bg-gray-900 border-2 border-gray-700 absolute top-0 -right-4 sm:-right-5 z-10 rounded-b-md shadow-xl cursor-pointer transition-colors duration-75 active:bg-gray-700"
+                                    data-note="G#4"></div>
+                            </div>
+
+                            <!-- A4 (白鍵) -->
+                            <div class="key white w-12 sm:w-16 h-48 sm:h-64 bg-white border-2 border-gray-700 rounded-b-lg shadow-lg relative cursor-pointer transition-colors duration-75 active:bg-gray-200"
+                                data-note="A4">
+                                <!-- A#4 (黒鍵) -->
+                                <div class="key black w-8 sm:w-10 h-32 sm:h-40 bg-gray-900 border-2 border-gray-700 absolute top-0 -right-4 sm:-right-5 z-10 rounded-b-md shadow-xl cursor-pointer transition-colors duration-75 active:bg-gray-700"
+                                    data-note="A#4"></div>
+                            </div>
+
+                            <!-- B4 (白鍵) - 黒鍵なし -->
+                            <div class="key white w-12 sm:w-16 h-48 sm:h-64 bg-white border-2 border-gray-700 rounded-b-lg shadow-lg relative cursor-pointer transition-colors duration-75 active:bg-gray-200"
+                                data-note="B4"></div>
+
+                        </div>
+                    </div>
                     <div id="player-list" class="space-y-3">
                         <!-- プレイヤーリストがここに入る -->
                     </div>
+
                 </div>
 
                 <!-- 右カラム: ロビーチャット -->

@@ -52,10 +52,11 @@ let ohshoCounter = 0;
 const GIF_ANIMES = ["misao003452.gif", "misao012134.gif", "misao056051.gif", "tanosi.gif", "tanosi2.gif"]
 
 // 顔文字リアクション描画用
-const START_FONT_SIZE = 20; // 開始時のフォントサイズ (px)
-const MAX_FONT_SIZE = 250;  // 最大のフォントサイズ (px)
-const GROWTH_TATE = 2; // 1フレーム（更新ごと）に大きくなる量 (px)
+const EMOTICON_REACTION_START_FONT_SIZE = 20; // 開始時のフォントサイズ (px)
+const EMOTICON_REACTION_MAX_FONT_SIZE = 250;  // 最大のフォントサイズ (px)
+const EMOTICON_REACTION_GROWTH_RATE = 2; // 1フレーム（更新ごと）に大きくなる量 (px)
 const ANIMATION_INTERVAL_TIME = 16; // アニメーションの更新間隔 (ms) - 約60fps相当
+const EMOTICON_REACTION_CLASS_LIST = ['text-white'];
 
 // 顔文字生成用
 const FACELINES = [["彡", "ミ"], ["[", "]"], ["<", ">"], ["ξ", "ξ"], ["(●", "●)"], ["【", "】"], ["((", "))"], ["(Ｕ", ")"], ["(Ｕ", "U)"], ["(;´Д`)(", ")"], ["(", ")(ﾟДﾟ;)"], ["(;ﾟДﾟ)(", ")"], ["(", ")(ﾟДﾟ;)"]]
@@ -99,6 +100,10 @@ let myTurn = false; // ババ抜き専用のターンフラグ
 const SUITS = ['♥', '♦', '♠', '♣'];
 const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
 const JOKER = { suit: 'JOKER', rank: 'JOKER', display: 'JOKER', color: 'black' };
+const BABA_EFFECT_START_FONT_SIZE = 40; // 開始時のフォントサイズ (px)
+const BABA_EFFECT_MAX_FONT_SIZE = 250;  // 最大のフォントサイズ (px)
+const BABA_EFFECT_GROWTH_RATE = 4; // 1フレーム（更新ごと）に大きくなる量 (px)
+const BABA_EFFECT_CLASS_LIST = ['text-red-600', 'bg-black'];
 
 // --- コリドール用ゲーム変数 ---
 const Q_BOARD_SIZE = 9; // 9x9 グリッド
@@ -233,6 +238,21 @@ function playPairSound() {
         synth.triggerAttackRelease("G5", "8n", now + 0.1);
     } catch (e) {
         console.error("playPairSound error:", e);
+    }
+}
+
+/**
+ * 敵が失敗したときの音(^Д^)
+ */
+function playEnemyFailsSound() {
+    if (!synth) return;
+    try {
+        const now = Tone.now();
+        synth.triggerAttackRelease("C5", "16n", now);
+        synth.triggerAttackRelease("C5", "16n", now + 0.05);
+        synth.triggerAttackRelease("C5", "16n", now + 0.1);
+    } catch (e) {
+        console.error("playEnemyFailsSound error:", e);
     }
 }
 
@@ -549,7 +569,7 @@ function showModal(title, body, buttons = []) {
     buttons.forEach(btnInfo => {
         const button = document.createElement('button');
         button.textContent = btnInfo.text;
-        button.className = `text-white font-bold py-2 px-4 rounded shadow hover:opacity-80 transition duration-300 items-center ${btnInfo.class}`;
+        button.className = `text-white font-bold py-2 px-4 rounded shadow hover:opacity-80 transition duration-300 items-center whitespace-nowrap ${btnInfo.class}`;
         button.onclick = btnInfo.action;
         modalButtons.appendChild(button);
     });
@@ -1959,13 +1979,10 @@ async function showActiveLobbyUsersInGame(presenceState) {
     }
 }
 
-/**
- * 顔文字リアクションの描画
- */
-function renderEmoticonReaction(emoticon) {
-    let emoticonReactionField = document.getElementById('emoticon-reaction-field');
+function renderTextExpansionAnimation(text, startFontSize, maxFontSize, growthRate, animeInterval, classList = null) {
+    let effectAnimationField = document.getElementById('effect-animation-field');
     let animationInterval = null; // アニメーションのIDを管理する変数
-    let currentSize = START_FONT_SIZE; // 現在のフォントサイズ (px)
+    let currentSize = startFontSize; // 現在のフォントサイズ (px)
 
     // アニメーションが実行中なら新しいアニメーションを開始せず処理を終了
     if (animationInterval) {
@@ -1973,31 +1990,46 @@ function renderEmoticonReaction(emoticon) {
     }
 
     // テキストのサイズを初期値に戻す
-    emoticonReactionField.innerHTML = emoticon;
-    emoticonReactionField.style.fontSize = `${currentSize}px`;
+    effectAnimationField.innerHTML = text;
+    effectAnimationField.style.fontSize = `${currentSize}px`;
 
     // テキストを表示状態にする
-    emoticonReactionField.classList.remove('hidden');
+    effectAnimationField.classList.remove('hidden');
+    if (classList) {
+        effectAnimationField.classList.add(...classList);
+    }
 
     // 拡大アニメーションを開始
     // setIntervalは、指定した時間(intervalTime)ごとに関数を繰り返し実行
     animationInterval = setInterval(() => {
 
         // フォントサイズを大きくする
-        currentSize += GROWTH_TATE;
-        emoticonReactionField.style.fontSize = `${currentSize}px`;
+        currentSize += growthRate;
+        effectAnimationField.style.fontSize = `${currentSize}px`;
 
         // 最大サイズに達した場合
-        if (currentSize >= MAX_FONT_SIZE) {
+        if (currentSize >= maxFontSize) {
 
             // アニメーションを停止
             clearInterval(animationInterval);
             animationInterval = null; // IDをリセットして、次のクリックに備える
 
             // テキストを非表示にする
-            emoticonReactionField.classList.add('hidden');
+            effectAnimationField.classList.add('hidden');
+            if (classList) {
+                effectAnimationField.classList.remove(...classList);
+            }
         }
-    }, ANIMATION_INTERVAL_TIME);
+    }, animeInterval);
+}
+
+/**
+ * 顔文字リアクションの描画
+ */
+function renderEmoticonReaction(emoticon) {
+    renderTextExpansionAnimation(emoticon,
+        EMOTICON_REACTION_START_FONT_SIZE, EMOTICON_REACTION_MAX_FONT_SIZE,
+        EMOTICON_REACTION_GROWTH_RATE, ANIMATION_INTERVAL_TIME, EMOTICON_REACTION_CLASS_LIST);
 }
 
 /**
@@ -2291,8 +2323,7 @@ function createDeck() {
     }
     deck.push(JOKER);
 
-    deck = shuffle(deck);
-    return deck;
+    return shuffle(deck);
 }
 
 /**
@@ -2649,6 +2680,22 @@ function handleCardDrawRequest(index) {
         return;
     }
 
+    // 相手がババを引いたときの挙動
+    if (drawnCard.rank === 'JOKER') {
+        playEnemyFailsSound();
+        const pEl = document.createElement('p');
+        pEl.classList.add('marquee');
+        pEl.textContent = '敵がババ引いたヽ(´ー｀)ノ';
+        drawnCardMessageEl.innerHTML = '';
+        drawnCardMessageEl.appendChild(pEl);
+        drawnCardMessageEl.classList.remove('text-white');
+        drawnCardMessageEl.classList.add('text-yellow-300');
+    } else {
+        drawnCardMessageEl.classList.remove('text-yellow-300');
+        drawnCardMessageEl.classList.add('text-white');
+        drawnCardMessageEl.textContent = `敵が「${drawnCard.display}」を引きました。`;
+    }
+
     // 相手がドローしたので、自分のターンが始まる
     myTurn = true;
 
@@ -2697,12 +2744,23 @@ function handleCardDrawn(card) {
         }
     }
 
-    // メッセージをdrawnCardMessageElに設定
+    // ドロー結果をdrawnCardMessageElに設定
+    drawnCardMessageEl.classList.remove('text-yellow-300');
+    drawnCardMessageEl.classList.add('text-white');
     if (pairFound) {
         drawnCardMessageEl.textContent = `「${card.display}」を引きました。「${matchingCardDisplay}」とペアになり、捨てました！`;
     } else if (card.display === 'JOKER') {
-        drawnCardMessageEl.textContent = 'ババを引きました(^Д^)残念！';
         playBuzzerSound();
+        renderTextExpansionAnimation('ババだ！',
+            BABA_EFFECT_START_FONT_SIZE, BABA_EFFECT_MAX_FONT_SIZE, BABA_EFFECT_GROWTH_RATE,
+            ANIMATION_INTERVAL_TIME, BABA_EFFECT_CLASS_LIST);
+        const pEl = document.createElement('p');
+        pEl.classList.add('marquee');
+        pEl.textContent = '残念！ババです(^Д^)';
+        drawnCardMessageEl.innerHTML = '';
+        drawnCardMessageEl.appendChild(pEl);
+        drawnCardMessageEl.classList.remove('text-white');
+        drawnCardMessageEl.classList.add('text-yellow-300');
     } else {
         drawnCardMessageEl.textContent = `「${card.display}」を引きました。ペアはありませんでした。`;
     }
@@ -2733,10 +2791,8 @@ function renderMyHand() {
 
     // 描画用の手札をシャッフル
     // (myHand 本体の順序は変更しない)
-    displayHand = shuffle(displayHand);
-
     // シャッフルした displayHand を描画
-    displayHand.forEach((card, index) => {
+    shuffle(displayHand).forEach((card, index) => {
         const cardEl = document.createElement('div');
         cardEl.className = `card ${card.color} ${card.rank === 'JOKER' ? 'joker' : ''}`;
         cardEl.textContent = card.display;

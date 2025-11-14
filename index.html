@@ -91,6 +91,29 @@
         #game-choice-modal-overlay {
             background-color: rgba(0, 0, 0, 0.7);
         }
+
+        /* 往復する文字 */
+        .marquee {
+            white-space: nowrap;
+            display: grid;
+            animation: marquee-alt 2s steps(30, end) infinite;
+
+            &::before {
+                content: '';
+            }
+        }
+
+        @keyframes marquee-alt {
+
+            0%,
+            100% {
+                grid-template-columns: 1fr auto;
+            }
+
+            50% {
+                grid-template-columns: 0fr auto;
+            }
+        }
     </style>
 </head>
 
@@ -223,27 +246,26 @@
             <div class="md:grid md:grid-cols-2 gap-6">
                 <!-- ババ抜きUI -->
                 <div id="babanuki-ui" class="hidden">
-                    <div>
-                        <!-- 相手の手札 -->
-                        <div class="mb-4 p-2 bg-green-800 rounded-lg shadow-lg">
-                            <h3 id="opponent-name" class="text-white lg:text-lg font-semibold mb-2 text-center">敵</h3>
-                            <div id="opponent-hand-container" class="flex flex-wrap justify-center min-h-[130px]">
-                                <!-- 相手のカード（裏）がここに入る -->
-                            </div>
+                    <!-- 相手の手札 -->
+                    <div class="mb-3 p-2 bg-green-800 rounded-lg shadow-lg">
+                        <h3 id="opponent-name" class="text-white lg:text-lg font-semibold mb-2 text-center">敵</h3>
+                        <div id="opponent-hand-container" class="flex flex-wrap justify-center min-h-[130px]">
+                            <!-- 相手のカード（裏）がここに入る -->
                         </div>
+                    </div>
 
-                        <!-- 引いたカード情報 (自分のみ表示) -->
-                        <div id="drawn-card-message"
-                            class="text-center text-yellow-300 md:text-lg font-semibold my-2 min-h-[25px]">
-                            <!-- 引いたカードのメッセージがここに入る -->
-                        </div>
+                    <!-- 引いたカード情報 (自分のみ表示) -->
+                    <div id="drawn-card-message"
+                        class="text-center text-white md:text-lg font-semibold my-2 min-h-[25px]"
+                        style="overflow: clip;">
+                        <!-- 引いたカードのメッセージがここに入る -->
+                    </div>
 
-                        <!-- 自分の手札 -->
-                        <div class="mt-4 p-2 bg-green-800 rounded-lg shadow-lg">
-                            <h3 id="my-name" class="text-white md:text-lg font-semibold mb-2 text-center">自分</h3>
-                            <div id="my-hand-container" class="flex flex-wrap justify-center min-h-[130px]">
-                                <!-- 自分のカードがここに入る -->
-                            </div>
+                    <!-- 自分の手札 -->
+                    <div class="mt-3 p-2 bg-green-800 rounded-lg shadow-lg">
+                        <h3 id="my-name" class="text-white md:text-lg font-semibold mb-2 text-center">自分</h3>
+                        <div id="my-hand-container" class="flex flex-wrap justify-center min-h-[130px]">
+                            <!-- 自分のカードがここに入る -->
                         </div>
                     </div>
                 </div>
@@ -347,9 +369,9 @@
                     </div>
                 </div>
 
-                <!-- 顔文字リアクション表示用 -->
-                <div id="emoticon-reaction-field"
-                    class="hidden fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white font-extrabold z-100 whitespace-nowrap">
+                <!-- 文字エフェクト表示用 -->
+                <div id="effect-animation-field"
+                    class="hidden fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 font-extrabold z-100 whitespace-nowrap">
                 </div>
             </div>
         </div>

@@ -389,14 +389,14 @@
         </div>
         <div class="text-white">
             <h2 class="underline cursor-pointer"
-                onclick="document.getElementById('quoridor-rule').classList.remove('hidden');">
-                コリドールのルール説明▼</h2>
+                onclick="document.getElementById('quoridor-rule').classList.toggle('hidden');">
+                コリドールのルール説明 ▼</h2>
             <div id="quoridor-rule" class="hidden">
                 <h3 class="py-4 text-xl font-bold text-yellow-400">ゲームの目的</h3>
                 <p>自分の駒を動かして、スタート地点の<strong>反対側のゴールライン（一番奥の列）</strong>に、相手より先に到達させることです。</p>
                 <p>ただし、壁が設置されているところに駒を動かすことはできません。</p>
 
-                <h3 class="py-4 text-xl font-bold text-yellow-400"> 自分の番にできること</h3>
+                <h3 class="py-4 text-xl font-bold text-yellow-400"> 自分のターン中にできること</h3>
                 <p>自分の番が来たら、駒を動かすか壁を設置することができます。</p>
                 <h4 class="py-2 pl-5 text-white">駒を動かす</h4>
                 <ul class="list-disc list-inside">

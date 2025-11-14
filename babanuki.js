@@ -3271,6 +3271,7 @@ function switchQuoridorTurn() {
     playClickSound();
 }
 
+
 // --- 11. DOM初期化 ---
 function initializeDOMElements() {
     // 共通

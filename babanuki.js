@@ -28,7 +28,7 @@ let previousLocalLobbyChatMsgId = '';
 let onlinePlayers = new Set();
 const LOBBY_NAME = 'babakatsu-lobby';
 const LOBBY_CHAT_NAME = 'babakatsu-lobby-chat'
-const SYGNAL_NAME = 'babakatsu-signals'
+const SIGNAL_NAME = 'babakatsu-signals'
 
 // 対戦者チャット
 let gameChatChannel, gameChatMessages, gameChatInput, gameChatSend;
@@ -543,10 +543,10 @@ async function initializeSupabase() {
 // ロビーチャットチャンネルを初期化
 async function setupLobbyChat() {
     if (!supabase) return;
-    // if (chatChannel) {
-    //     await chatChannel.unsubscribe();
-    //     chatChannel = null;
-    // }
+    if (chatChannel) {
+        await chatChannel.unsubscribe();
+        chatChannel = null;
+    }
 
     chatChannel = supabase.channel(LOBBY_CHAT_NAME);
 
@@ -603,7 +603,7 @@ function showModal(title, body, buttons = []) {
     buttons.forEach(btnInfo => {
         const button = document.createElement('button');
         button.textContent = btnInfo.text;
-        button.className = `text-white font-bold py-2 px-4 rounded shadow hover:opacity-80 transition duration-300 items-center whitespace-nowrap ${btnInfo.class}`;
+        button.className = `md:text-base sm:text-sm text-white font-bold py-2 px-4 rounded shadow hover:opacity-80 transition duration-300 items-center whitespace-nowrap ${btnInfo.class}`;
         button.onclick = btnInfo.action;
         modalButtons.appendChild(button);
     });
@@ -1122,6 +1122,11 @@ async function leaveLobby() {
         await signalChannel.unsubscribe();
         signalChannel = null;
     }
+    if (chatChannel) {
+        await chatChannel.unsubscribe();
+        chatChannel = null;
+    }
+
     showScreen('setup');
 };
 
@@ -1138,7 +1143,7 @@ async function setupSignalChannel() {
     }
 
     // チャンネル名は固定 (全ユーザ共通)
-    signalChannel = supabase.channel(SYGNAL_NAME);
+    signalChannel = supabase.channel(SIGNAL_NAME);
 
     // ブロードキャストイベントをリッスン
     // (チャンネルを新規作成したので多重登録の心配はない)
@@ -3056,6 +3061,7 @@ function updateQuoridorUI() {
     if (!gameOver) {
         if (q_currentPlayer === myPlayerNum) {
             printTurnStatus(myTurn = true);
+            canvas.style.cursor = 'pointer';
             if (myPlayerNum === 1) {
                 qP1Ping.classList.remove('hidden');
             } else {
@@ -3063,6 +3069,7 @@ function updateQuoridorUI() {
             }
         } else {
             printTurnStatus(myTurn = false);
+            canvas.style.cursor = 'not-allowed';
             if (myPlayerNum === 1) {
                 qP1Ping.classList.add('hidden');
             } else {
@@ -3147,7 +3154,10 @@ function setQuoridorAction(action) {
 }
 
 function handleQuoridorBoardClick(e) {
-    if (gameOver || q_currentPlayer !== myPlayerNum) return; // 自分のターンでなければ操作不可
+    if (gameOver || q_currentPlayer !== myPlayerNum) {
+        playBuzzerSound();
+        return; // 自分のターンでなければ操作不可
+    }
 
     if (currentAction === 'move') {
         const { col, row } = getQuoridorSquareCoords(e);

@@ -151,7 +151,7 @@
                     <h2 class="text-2xl font-bold text-white">ババ活待合室</h2>
                     <!-- 低解像度用退出ボタン (mdで非表示) -->
                     <button
-                        class="bg-gray-600 text-white font-semibold py-1 px-3 rounded-lg shadow hover:bg-gray-700 text-sm whitespace-nowrap md:hidden"
+                        class="bg-gray-600 text-white font-semibold py-1 px-3 rounded-md shadow hover:bg-gray-700 text-sm whitespace-nowrap md:hidden"
                         onclick="leaveLobby();">
                         退出
                     </button>
@@ -179,9 +179,10 @@
                         <p id="no-players-image" class="flex justify-center">
                         </p>
                         <button id="keyboard-toggle-button"
-                            class="text-xs lg:text-sm text-white bg-black rounded-lg p-1 m-2"
+                            class="lg:text-base md:text-sm text-xs text-white bg-black rounded-md px-1 md:m-4 m-2"
                             onclick="document.getElementById('keyboard-container').classList.toggle('hidden');">鍵盤楽器</button>
-                        <button id="windows-sound" class="text-xs lg:text-sm text-white bg-sky-600 rounded-lg p-1 m-2"
+                        <button id="windows-sound"
+                            class="lg:text-base md:text-sm text-xs text-white bg-sky-600 rounded-md px-1 md:m-4 m-2"
                             onclick="audio.src='media/windows_64kbps.mp3'; audio.play();">Windowsを起動するわよ！</button>
                         <audio id="audio"></audio>
                         <!-- キーボード機能 -->
@@ -255,7 +256,7 @@
                         <button id="chat-send-btn"
                             class="flex flex-nowrap bg-green-600 text-white font-bold md:text-base text-xs md:px-4 px-1 py-2 rounded-md hover:bg-green-700 transition">投稿</button>
                         <button id="flex chat-input-clear-btn"
-                            class="flex-nowrap bg-gray-600 text-white font-semibold md:text-base text-xs md:px-4 px-1 py-2 rounded-lg shadow hover:bg-gray-700 transition"
+                            class="flex-nowrap bg-gray-600 text-white font-semibold md:text-base text-xs md:px-4 px-1 py-2 rounded-md shadow hover:bg-gray-700 transition"
                             onclick="document.getElementById('chat-input').value = '';">消す</button>
                     </div>
                     <div id="ohsho-buttons" class="my-2 flex justify-center">
@@ -280,11 +281,11 @@
                     </div>
                 </div>
                 <div class="flex justify-left items-center border-t lg:border-none border-gray-300 py-2">
-                    <button class="bg-sky-600 lg:text-sm text-xs text-white p-2 mx-2 rounded-lg shadow-md"><a
+                    <button class="bg-sky-600 lg:text-sm text-xs text-white p-2 mx-2 rounded-md shadow-md"><a
                             href="https://x.com/intent/tweet?text=%E3%83%90%E3%83%90%E6%B4%BB%E7%9B%B8%E6%89%8B%E5%8B%9F%E9%9B%86%E4%B8%AD%28%3B%C2%B4%D0%94%60%29%20%0Ahttps%3A%2F%2Fkuhaku.github.io%2Fp2p-babanuki%2F%0A%23%E3%83%90%E3%83%90%E6%B4%BB%20%23%E5%90%88%E6%B3%95%20%23%E3%83%84%E3%83%BC%E3%82%B7%E3%83%A7%E3%83%83%E3%83%88%20%23%E7%A7%98%E5%AF%86%20%23%E5%85%B1%E6%9C%89">ツイッター</a>
                     </button>
                     <button id="voiceless-mode-button1"
-                        class="bg-gray-600 lg:text-sm text-xs text-white font-bold p-2 mx-2 rounded-lg shadow-md hover:bg-gray-700 transition duration-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 whitespace-nowrap">
+                        class="bg-gray-600 lg:text-sm text-xs text-white font-bold p-2 mx-2 rounded-md shadow-md hover:bg-gray-700 transition duration-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 whitespace-nowrap">
                         無声する
                     </button>
                 </div>
@@ -355,15 +356,15 @@
                     <!-- アクション選択 -->
                     <div class="flex grid-cols-3 justify-center space-x-2 space-y-2 sm:space-y-0">
                         <button id="q-move-btn"
-                            class="btn-active md:text-sm text-xs px-2 py-2 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 focus:outline-none">
+                            class="btn-active md:text-sm text-xs px-2 py-2 bg-green-500 text-white font-semibold rounded-lg sm:rounded-md shadow-md hover:bg-green-600 focus:outline-none">
                             駒を動かす
                         </button>
                         <button id="q-h-wall-btn"
-                            class="md:text-sm text-xs px-2 py-2 bg-gray-500 text-white font-semibold rounded-lg shadow-md hover:bg-gray-600 focus:bg-green-500 focus:outline-none">
+                            class="md:text-sm text-xs px-2 py-2 bg-gray-500 text-white font-semibold rounded-lg sm:rounded-md shadow-md hover:bg-gray-600 focus:bg-green-500 focus:outline-none">
                             横の壁配置
                         </button>
                         <button id="q-v-wall-btn"
-                            class="md:text-sm text-xs px-2 py-2 bg-gray-500 text-white font-semibold rounded-lg shadow-md hover:bg-gray-600 focus:bg-green-500 focus:outline-none">
+                            class="md:text-sm text-xs px-2 py-2 bg-gray-500 text-white font-semibold rounded-lg sm:rounded-md shadow-md hover:bg-gray-600 focus:bg-green-500 focus:outline-none">
                             縦の壁配置
                         </button>
                     </div>
@@ -401,7 +402,7 @@
                             class="lg:text-sm text-xs bg-green-600 text-white font-bold px-2 py-2 rounded-md hover:bg-green-700 transition whitespace-nowrap"
                             onclick="sendGameChatMessage();">投稿</button>
                         <button id="game-chat-input-clear-btn"
-                            class="lg:text-sm text-xs bg-gray-600 text-white font-semibold px-2 py-2 rounded-lg shadow hover:bg-gray-700 transition whitespace-nowrap"
+                            class="lg:text-sm text-xs bg-gray-600 text-white font-semibold px-2 py-2 rounded-md shadow hover:bg-gray-700 transition whitespace-nowrap"
                             onclick="document.getElementById('game-chat-input').value = '';">消す</button>
                     </div>
                     <div id="file-transfer-container" class="md:text-base font-semibold text-white mb-2 py-2">
@@ -423,7 +424,7 @@
                     </div>
                     <div class="border-t border-gray-300 mt-4 pt-4">
                         <button id="voiceless-mode-button2"
-                            class="bg-gray-600 text-white text-sm font-bold p-2 mx-2 rounded-lg shadow-md hover:bg-gray-700 transition duration-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 whitespace-nowrap">
+                            class="bg-gray-600 text-white text-sm font-bold p-2 mx-2 rounded-md shadow-md hover:bg-gray-700 transition duration-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 whitespace-nowrap">
                             無声する
                         </button>
                     </div>

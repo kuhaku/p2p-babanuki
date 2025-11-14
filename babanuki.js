@@ -3284,6 +3284,7 @@ function isWallBlocking(pos1, pos2) {
 
 function tryPlaceWall(col, row, orientation) {
     if (!isWallPlacementValid(col, row, orientation, false)) {
+        playBuzzerSound();
         return;
     }
 

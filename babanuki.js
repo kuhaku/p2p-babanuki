@@ -410,6 +410,15 @@ function toggleVoiceLess() {
     voiceLessBtn2.textContent = message;
 }
 
+// シャッフル (Fisher-Yates)
+function shuffle(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+}
+
 // 日時フォーマッタ（%Y-%m-%d %H:%M:%S）
 function formatTimestamp(ts) {
     // 0埋め
@@ -802,6 +811,23 @@ function gyouzaNoOhSho(char) {
         default:
             break;
     }
+
+    // 餃子の王将ボタンの順序をシャッフルする処理
+    let soshiButton = document.getElementById('soshi-button');
+    let ohshoButtonsDiv = document.getElementById('ohsho-buttons');
+    // 阻止ボタン以外をシャッフル
+    let otherButtons = Array.from(ohshoButtonsDiv.querySelectorAll('button:not(#soshi-button)'));
+    otherButtons = shuffle(otherButtons);
+    // 王将ボタンエリア全削除
+    while (ohshoButtonsDiv.firstChild) {
+        ohshoButtonsDiv.removeChild(ohshoButtonsDiv.firstChild);
+    }
+    // 阻止ボタンが最初になるようにする
+    ohshoButtonsDiv.appendChild(soshiButton);
+    // シャッフルされた順序で他のボタン追加
+    otherButtons.forEach(button => {
+        ohshoButtonsDiv.appendChild(button);
+    });
 
     ohshoCounter += 1;
     switch (ohshoCounter) {
@@ -2265,11 +2291,7 @@ function createDeck() {
     }
     deck.push(JOKER);
 
-    // シャッフル (Fisher-Yates)
-    for (let i = deck.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [deck[i], deck[j]] = [deck[j], deck[i]];
-    }
+    deck = shuffle(deck);
     return deck;
 }
 
@@ -2709,12 +2731,9 @@ function renderMyHand() {
     // 描画用の手札コピーを作成
     const displayHand = [...myHand];
 
-    // 描画用の手札をシャッフル (Fisher-Yates)
+    // 描画用の手札をシャッフル
     // (myHand 本体の順序は変更しない)
-    for (let i = displayHand.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [displayHand[i], displayHand[j]] = [displayHand[j], displayHand[i]];
-    }
+    displayHand = shuffle(displayHand);
 
     // シャッフルした displayHand を描画
     displayHand.forEach((card, index) => {

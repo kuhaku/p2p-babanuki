@@ -782,31 +782,46 @@ function appendLobbyChatMessage(sender, message, timestamp, isSelf = false) {
 /**
  * 餃子の王将
  */
-function gyouzaNoOhSho() {
+function gyouzaNoOhSho(char) {
+    switch (char) {
+        case '将':
+            sendChatMessage('将', sound = false, voice = 'しょう');
+            break;
+        case '王':
+            sendChatMessage('王', sound = false, voice = '王');
+            break;
+        case 'の':
+            sendChatMessage('の', sound = false, voice = 'の');
+            break;
+        case '子':
+            sendChatMessage('子', sound = false, voice = 'ざ');
+            break;
+        case '餃':
+            sendChatMessage('餃', sound = false, voice = 'ぎょう');
+            break;
+        default:
+            break;
+    }
+
     ohshoCounter += 1;
     switch (ohshoCounter) {
         case 1:
-            sendChatMessage('将', sound = false, voice = 'しょう');
             button = document.getElementById("oh-button");
             button.classList.remove("hidden");
             break;
         case 2:
-            sendChatMessage('王', sound = false, voice = '王');
             button = document.getElementById("no-button");
             button.classList.remove("hidden");
             break;
         case 3:
-            sendChatMessage('の', sound = false, voice = 'の');
             button = document.getElementById("za-button");
             button.classList.remove("hidden");
             break;
         case 4:
-            sendChatMessage('子', sound = false, voice = 'ざ');
             button = document.getElementById("gyou-button");
             button.classList.remove("hidden");
             break;
         case 5:
-            sendChatMessage('餃', sound = false, voice = 'ぎょう');
             let idPrefixes = ['oh', 'no', 'za', 'gyou'];
             idPrefixes.forEach(idPrefix => {
                 let button = document.getElementById(`${idPrefix}-button`);

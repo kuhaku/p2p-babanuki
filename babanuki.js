@@ -1,5 +1,5 @@
 // --- 0. グローバル変数と定数 ---
-let supabase;
+let supabaseClient;
 let myName = '';
 let userId = '';
 let peerConnection;
@@ -504,7 +504,7 @@ function formatTimestamp(ts) {
     return `${Y}-${M}-${D} ${h}:${m}:${s}`;
 }
 
-// --- 1. Supabase 初期化 ---
+// --- 1. supabaseClient 初期化 ---
 /**
  * Supabaseクライアントを初期化
  */
@@ -519,10 +519,10 @@ async function initializeSupabase() {
     try {
         // window.supabaseからcreateClientを取得
         const { createClient } = window.supabase;
-        supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // 接続テスト (簡単なクエリ)
-        if (supabase) {
+        if (supabaseClient) {
             return true;
         } else {
             throw new Error("クライアントの作成に失敗しました。");
@@ -542,13 +542,13 @@ async function initializeSupabase() {
 
 // ロビーチャットチャンネルを初期化
 async function setupLobbyChat() {
-    if (!supabase) return;
+    if (!supabaseClient) return;
     if (chatChannel) {
         await chatChannel.unsubscribe();
         chatChannel = null;
     }
 
-    chatChannel = supabase.channel(LOBBY_CHAT_NAME);
+    chatChannel = supabaseClient.channel(LOBBY_CHAT_NAME);
 
     // 多重登録防止
     if (!chatChannel.__listenerAdded) {
@@ -964,7 +964,7 @@ async function initLobby(myName) {
     }
 
     // ロビーチャンネルに参加
-    lobbyChannel = supabase.channel(LOBBY_NAME, {
+    lobbyChannel = supabaseClient.channel(LOBBY_NAME, {
         config: {
             presence: {
                 key: userId, // PresenceキーにUserIDを使用
@@ -1143,7 +1143,7 @@ async function setupSignalChannel() {
     }
 
     // チャンネル名は固定 (全ユーザ共通)
-    signalChannel = supabase.channel(SIGNAL_NAME);
+    signalChannel = supabaseClient.channel(SIGNAL_NAME);
 
     // ブロードキャストイベントをリッスン
     // (チャンネルを新規作成したので多重登録の心配はない)
@@ -1924,14 +1924,14 @@ function appendGameChatMessage(sender, message, timestamp, isSelf = false) {
 
 // 対戦部屋チャットチャンネル初期化
 async function setupGameChat(roomId) {
-    if (!supabase || !roomId) return;
+    if (!supabaseClient || !roomId) return;
 
     if (gameChatChannel) {
         await gameChatChannel.unsubscribe();
         gameChatChannel = null;
     }
 
-    gameChatChannel = supabase.channel(`game-${roomId}-chat`);
+    gameChatChannel = supabaseClient.channel(`game-${roomId}-chat`);
     initGameChatElements();
 
     gameChatChannel.on('broadcast', { event: 'message' }, ({ payload }) => {

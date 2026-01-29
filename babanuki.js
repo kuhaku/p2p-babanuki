@@ -52,6 +52,7 @@ let ohshoCounter = 0;
 const GIF_ANIMES = [
     'bgcg.gif', 'misao003452.gif', 'misao003458.gif', 'misao012134.gif', 'misao014250.gif',
     'misao056051.gif', 'tanosi.gif', 'tanosi2.gif', 'yukarin3382.gif', 'yukarin3731.gif',
+    'matari.gif',
 ]
 
 // 顔文字リアクション描画用

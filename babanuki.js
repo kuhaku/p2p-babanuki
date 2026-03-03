@@ -27,8 +27,8 @@ let previousLobbyChatMsgId = '';
 let previousLocalLobbyChatMsgId = '';
 let onlinePlayers = new Set();
 const LOBBY_NAME = 'babakatsu-lobby';
-const LOBBY_CHAT_NAME = 'babakatsu-lobby-chat'
-const SIGNAL_NAME = 'babakatsu-signals'
+const LOBBY_CHAT_NAME = 'babakatsu-lobby-chat';
+const SIGNAL_NAME = 'babakatsu-signals';
 
 // 対戦者チャット
 let gameChatChannel, gameChatMessages, gameChatInput, gameChatSend;
@@ -120,6 +120,15 @@ let horizontalWalls, verticalWalls; // 8x8のboolean配列
 let currentAction; // 'move', 'h_wall', 'v_wall'
 let potentialWall; // { col, row, orientation }
 let gameOver;
+
+// --- オセロ用ゲーム変数 ---
+let othelloBoard = []; // 8x8 (0:空, 1:黒, 2:白, 11:黒SP, 22:白SP)
+let o_currentPlayer = 1; // 1 (黒:ホスト) or 2 (白:ゲスト)
+let p1SpStones = 5;
+let p2SpStones = 5;
+let useSpStoneMode = false;
+let othelloCanvas, oCtx, oTileSize;
+let activeOthelloEffects = [];
 
 
 function escapeChar(str) {
@@ -628,6 +637,7 @@ function showGameChoiceModal(targetUserId, targetName) {
 
     gameChoiceBabanukiBtn.onclick = () => sendInvite(targetUserId, targetName, 'babanuki');
     gameChoiceQuoridorBtn.onclick = () => sendInvite(targetUserId, targetName, 'quoridor');
+    gameChoiceOthelloBtn.onclick = () => sendInvite(targetUserId, targetName, 'othello');
     gameChoiceCancelBtn.onclick = hideGameChoiceModal;
 }
 
@@ -1259,7 +1269,17 @@ function sendInvite(targetUserId, targetName, gameType) {
         userStatus = 'busy';
         updateMyPresence();
     }
-    const gameName = gameType === 'babanuki' ? 'ババ抜き' : 'コリドール';
+    switch (gameType) {
+        case 'babanuki':
+            gameName = 'ババ抜き';
+            break;
+        case 'quoridor':
+            gameName = 'コリドール';
+            break;
+        case 'othello':
+            gameName = 'おまこんリバーシ (オセロ)';
+            break;
+    }
     showModal('招待中', `${targetName} を ${gameName} に誘ってます……`, [
         { text: 'やっぱやめる', class: 'bg-gray-500', action: cancelInvite }
     ]);
@@ -1314,7 +1334,17 @@ function handleInvite(payload) {
     // 招待受信音を鳴らす
     playInviteSound();
 
-    const gameName = currentGameType === 'babanuki' ? 'ババ抜き' : 'コリドール';
+    switch (currentGameType) {
+        case 'babanuki':
+            gameName = 'ババ抜き';
+            break;
+        case 'quoridor':
+            gameName = 'コリドール';
+            break;
+        case 'othello':
+            gameName = 'おまこんリバーシ (オセロ)';
+            break;
+    }
     showModal('挑戦者現る！', `${payload.senderName}から ${gameName} のお誘いがきました`, [
         { text: '拒否', class: 'bg-red-500', action: () => rejectInvite(payload.senderUserId) },
         { text: '許可', class: 'bg-green-600', action: acceptInvite },
@@ -1420,7 +1450,18 @@ function handleAccept(payload) {
     createOffer();
 
     // ロビーチャットに通知
-    const gameName = currentGameType === 'babanuki' ? 'ババ抜き' : 'コリドール';
+    let gameName = '';
+    switch (currentGameType) {
+        case 'babanuki':
+            gameName = 'ババ抜き';
+            break;
+        case 'quoridor':
+            gameName = 'コリドール';
+            break;
+        case 'othello':
+            gameName = 'おまこんリバーシ (オセロ)';
+            break;
+    }
     sendLobbyNotification(`${myName} と ${opponentName} の ${gameName} 対戦開始`);
 
     if (userStatus !== 'gaming') {
@@ -1578,6 +1619,8 @@ function setupDataChannelListeners() {
                 initializeBabanukiGame();
             } else if (currentGameType === 'quoridor') {
                 initQuoridorGame(); // ホストがコリドールを初期化
+            } else if (currentGameType === 'othello') {
+                initOthelloGame(); // ホストがオセロを初期化
             }
             // ホスト側のみ roomId を生成・送信
             createRoomAndShare();
@@ -1605,6 +1648,8 @@ function setupDataChannelListeners() {
             handleBabanukiData(msg);
         } else if (msg.gameType === 'quoridor') {
             handleQuoridorData(msg);
+        } else if (msg.gameType === 'othello') {
+            handleOthelloData(msg);
         } else {
             // ゲームタイプが不明な共通メッセージ（チャットルームIDなど）
             switch (msg.type) {
@@ -2161,6 +2206,39 @@ function setupGameUI() {
 
         // リサイズ処理（初回描画も兼ねる）
         resizeQuoridorCanvas();
+    } else if (currentGameType === 'othello') {
+        // オセロUI表示
+        babanukiUI.classList.add('hidden');
+        quoridorUI.classList.add('hidden');
+        othelloUI.classList.remove('hidden');
+
+        // 表示順変更のための要素取得
+        const oPlayer1Info = document.getElementById('o-player1-info');
+        const oPlayer2Info = document.getElementById('o-player2-info');
+
+        if (isHost) {
+            oPlayer1Name.textContent = `黒: ${myName} (貴殿)`;
+            oPlayer2Name.textContent = `白: ${opponentName} (敵)`;
+
+            // 自分が黒(Player1)なので左側(order-1)に配置
+            oPlayer1Info.classList.remove('order-3');
+            oPlayer1Info.classList.add('order-1');
+            oPlayer2Info.classList.remove('order-1');
+            oPlayer2Info.classList.add('order-3');
+        } else {
+            oPlayer1Name.textContent = `黒: ${opponentName} (敵)`;
+            oPlayer2Name.textContent = `白: ${myName} (貴殿)`;
+
+            // 自分が白(Player2)なので、Player2を左側(order-1)、Player1を右側(order-3)に配置
+            oPlayer2Info.classList.remove('order-3');
+            oPlayer2Info.classList.add('order-1');
+            oPlayer1Info.classList.remove('order-1');
+            oPlayer1Info.classList.add('order-3');
+        }
+
+        othelloCanvas.addEventListener('click', handleOthelloBoardClick);
+        oToggleSpBtn.onclick = toggleSpStoneMode;
+        resizeOthelloCanvas();
     }
 }
 
@@ -2500,6 +2578,8 @@ function showRematchPrompt(isWinner) {
             resultMessage = `${myName} が ${opponentName} にババ抜きで勝利しました！`;
         } else if (currentGameType === 'quoridor') {
             resultMessage = `${myName} が ${opponentName} にコリドールで勝利しました！`;
+        } else if (currentGameType === 'othello') {
+            resultMessage = `${myName} が ${opponentName} におまこんリバーシ (オセロ)で勝利しました！`;
         }
         sendLobbyNotification(resultMessage);  // ロビーチャットに結果を通知
     } else {
@@ -2687,6 +2767,14 @@ function restartGame() {
         } else {
             statusMessage.textContent = "再戦開始...ホストを待っています...";
             // ゲストは 'quoridor-init' を待つ
+        }
+    } else if (currentGameType === 'othello') {
+        if (isHost) {
+            statusMessage.textContent = "再戦開始...盤面を準備しています...";
+            initOthelloGame(); // ホストがオセロを再初期化
+        } else {
+            statusMessage.textContent = "再戦開始...ホストを待っています...";
+            // ゲストは 'othello-init' を待つ
         }
     }
 }
@@ -3406,7 +3494,518 @@ function switchQuoridorTurn() {
 }
 
 
-// --- 11. DOM初期化 ---
+// --- 12. オセロ ゲームロジック ---
+function initOthelloGame() {
+    othelloBoard = Array(8).fill(null).map(() => Array(8).fill(0));
+    // 初期配置
+    othelloBoard[3][3] = 2; // 白
+    othelloBoard[4][4] = 2; // 白
+    othelloBoard[3][4] = 1; // 黒
+    othelloBoard[4][3] = 1; // 黒
+
+    p1SpStones = 5;
+    p2SpStones = 5;
+    o_currentPlayer = 1; // 黒(ホスト)が先手
+    useSpStoneMode = false;
+    gameOver = false;
+
+    sendData({
+        type: 'othello-init',
+        board: othelloBoard,
+        currentPlayer: o_currentPlayer,
+        p1Sp: p1SpStones,
+        p2Sp: p2SpStones
+    });
+
+    updateOthelloUI();
+    drawOthelloGame();
+}
+
+function handleOthelloData(msg) {
+    switch (msg.type) {
+        case 'othello-init':
+            othelloBoard = msg.board;
+            o_currentPlayer = msg.currentPlayer;
+            p1SpStones = msg.p1Sp;
+            p2SpStones = msg.p2Sp;
+            gameOver = false;
+            useSpStoneMode = false;
+            resizeOthelloCanvas();
+            updateOthelloUI();
+            break;
+        case 'othello-move':
+            applyOthelloMove(msg.row, msg.col, msg.player, msg.isSp);
+            checkOthelloTurn();
+            break;
+    }
+}
+
+function toggleSpStoneMode() {
+    useSpStoneMode = !useSpStoneMode;
+    if (useSpStoneMode) {
+        oToggleSpBtn.classList.replace('bg-gray-500', 'bg-yellow-500');
+        oToggleSpBtn.innerHTML = 'おまん駒を使う<br>(ON)';
+    } else {
+        oToggleSpBtn.classList.replace('bg-yellow-500', 'bg-gray-500');
+        oToggleSpBtn.innerHTML = 'おまん駒を使う<br>(OFF)';
+    }
+}
+
+function handleOthelloBoardClick(e) {
+    if (gameOver || o_currentPlayer !== myPlayerNum) {
+        playBuzzerSound();
+        return;
+    }
+
+    const rect = othelloCanvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const col = Math.floor(x / oTileSize);
+    const row = Math.floor(y / oTileSize);
+
+    // おまん駒の残量チェック
+    const remainingSp = (myPlayerNum === 1) ? p1SpStones : p2SpStones;
+    if (useSpStoneMode && remainingSp <= 0) {
+        playBuzzerSound();
+        alert("おまん駒がもうありません！");
+        toggleSpStoneMode();
+        return;
+    }
+
+    if (getFlippableStones(row, col, myPlayerNum).length > 0) {
+        // P2P送信
+        sendData({ type: 'othello-move', row, col, player: myPlayerNum, isSp: useSpStoneMode });
+
+        applyOthelloMove(row, col, myPlayerNum, useSpStoneMode);
+        playClickSound(); // 石を置く音
+
+        if (useSpStoneMode) toggleSpStoneMode(); // 置いたら自動でOFFに戻す
+
+        checkOthelloTurn();
+    } else {
+        playBuzzerSound(); // 置けない場所
+    }
+}
+
+function applyOthelloMove(row, col, playerNum, isSp) {
+    const flips = getFlippableStones(row, col, playerNum);
+    const stoneVal = isSp ? parseInt(`${playerNum}${playerNum}`) : playerNum;
+    othelloBoard[row][col] = stoneVal;
+
+    if (isSp) {
+        if (playerNum === 1) p1SpStones--;
+        else p2SpStones--;
+    }
+
+    // 石をひっくり返す
+    flips.forEach(pos => {
+        const currentVal = othelloBoard[pos.r][pos.c];
+        if (currentVal > 10) {
+            othelloBoard[pos.r][pos.c] = parseInt(`${playerNum}${playerNum}`);
+        } else {
+            othelloBoard[pos.r][pos.c] = playerNum;
+        }
+    });
+
+    // --- サウンドとエフェクトのトリガー ---
+    const isSelf = (playerNum === myPlayerNum);
+
+    if (isSp) {
+        playSpStoneSound(isSelf);
+        playOthelloSpAnimation(row, col, isSelf);
+    } else if (flips.length > 0) {
+        playCaptureSounds(flips.length, isSelf);
+    }
+
+    updateOthelloUI();
+    drawOthelloGame();
+}
+
+const directions = [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]];
+
+function getFlippableStones(row, col, playerNum) {
+    if (othelloBoard[row][col] !== 0) return [];
+
+    const flips = [];
+    directions.forEach(dir => {
+        let r = row + dir[0];
+        let c = col + dir[1];
+        let tempFlips = [];
+
+        // 相手の石（1or11, 2or22）を判定
+        while (r >= 0 && r < 8 && c >= 0 && c < 8) {
+            const val = othelloBoard[r][c];
+            if (val === 0) break;
+
+            const owner = val % 10; // 1, 11 -> 1 | 2, 22 -> 2
+            if (owner === playerNum) {
+                flips.push(...tempFlips);
+                break;
+            } else {
+                tempFlips.push({ r, c });
+            }
+            r += dir[0];
+            c += dir[1];
+        }
+    });
+    return flips;
+}
+
+function checkOthelloTurn() {
+    const nextPlayer = (o_currentPlayer === 1) ? 2 : 1;
+
+    // 次のプレイヤーは置けるか？
+    if (canPlayerMove(nextPlayer)) {
+        o_currentPlayer = nextPlayer;
+    } else if (canPlayerMove(o_currentPlayer)) {
+        // 次の人がパス、元の人がもう一度
+        renderTextExpansionAnimation('パス！', 10, 120, 3, 16, ['text-yellow-400', 'drop-shadow-2xl']);
+    } else {
+        // どちらも置けないならゲーム終了
+        gameOver = true;
+    }
+
+    updateOthelloUI();
+
+    // 勝敗判定の代わりにカウント演出を開始
+    if (gameOver) {
+        startOthelloCountAnimation();
+    }
+}
+
+function canPlayerMove(playerNum) {
+    for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+            if (getFlippableStones(r, c, playerNum).length > 0) return true;
+        }
+    }
+    return false;
+}
+
+function calculateOthelloScore() {
+    let p1 = 0; let p2 = 0;
+    for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+            const val = othelloBoard[r][c];
+            if (val === 1) p1 += 1;
+            if (val === 11) p1 += 5; // おまん駒は5点
+            if (val === 2) p2 += 1;
+            if (val === 22) p2 += 5; // おまん駒は5点
+        }
+    }
+    return { 1: p1, 2: p2 };
+}
+
+function resizeOthelloCanvas() {
+    if (!othelloCanvas) return;
+    const size = Math.min(othelloCanvas.parentElement.clientWidth, 600);
+    othelloCanvas.width = size;
+    othelloCanvas.height = size;
+    oTileSize = size / 8;
+    drawOthelloGame();
+}
+
+function drawOthelloGame() {
+    if (!oCtx || !othelloBoard || othelloBoard.length === 0) return;
+
+    oCtx.clearRect(0, 0, othelloCanvas.width, othelloCanvas.height);
+
+    // グリッド描画
+    oCtx.strokeStyle = '#000';
+    oCtx.lineWidth = 2;
+    for (let i = 1; i < 8; i++) {
+        oCtx.beginPath();
+        oCtx.moveTo(i * oTileSize, 0);
+        oCtx.lineTo(i * oTileSize, othelloCanvas.height);
+        oCtx.stroke();
+        oCtx.beginPath();
+        oCtx.moveTo(0, i * oTileSize);
+        oCtx.lineTo(othelloCanvas.width, i * oTileSize);
+        oCtx.stroke();
+    }
+
+    // 石の描画
+    const radius = oTileSize * 0.4;
+    for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+            // othelloBoard[r] がまだ作られていない（ゲーム開始前などの）場合はエラーになるのでスキップ
+            if (!othelloBoard || !othelloBoard[r]) continue;
+
+            const val = othelloBoard[r][c];
+            if (val === 0 || val === undefined) continue;
+
+            const cx = c * oTileSize + oTileSize / 2;
+            const cy = r * oTileSize + oTileSize / 2;
+
+            oCtx.beginPath();
+            oCtx.arc(cx, cy, radius, 0, Math.PI * 2);
+            oCtx.fillStyle = (val % 10 === 1) ? '#222' : '#FFF';
+            oCtx.fill();
+
+            if (val > 10) {
+                oCtx.lineWidth = 3;
+                oCtx.strokeStyle = '#FAD544';
+                oCtx.stroke();
+                oCtx.fillStyle = (val === 11) ? '#FAD544' : '#E53E3E';
+                oCtx.font = `bold ${oTileSize * 0.2}px Arial`;
+                oCtx.textAlign = "center";
+                oCtx.textBaseline = "middle";
+                oCtx.fillText("おまん", cx, cy);
+            }
+        }
+    }
+
+    // --- エフェクトの描画 ---
+    if (typeof activeOthelloEffects !== 'undefined') {
+        const now = Date.now();
+        activeOthelloEffects.forEach(eff => {
+            const elapsed = now - eff.startTime;
+            const progress = elapsed / eff.duration;
+            const cx = eff.col * oTileSize + oTileSize / 2;
+            const cy = eff.row * oTileSize + oTileSize / 2;
+
+            oCtx.save();
+            oCtx.translate(cx, cy);
+
+            if (eff.type === 'sp') {
+                if (eff.isSelf) {
+                    oCtx.rotate(elapsed * 0.005);
+                    oCtx.globalAlpha = 1 - progress;
+                    oCtx.fillStyle = '#FAD544';
+                    drawStar(oCtx, 0, 0, 5, oTileSize, oTileSize / 2);
+                    oCtx.fill();
+                } else {
+                    oCtx.rotate(-elapsed * 0.005);
+                    oCtx.globalAlpha = 1 - progress;
+                    oCtx.fillStyle = 'rgba(229, 62, 62, 0.8)';
+                    drawStar(oCtx, 0, 0, 8, oTileSize * 1.2, oTileSize * 0.8);
+                    oCtx.fill();
+                }
+            } else if (eff.type === 'count') {
+                // 石を数える時の白く光るフラッシュエフェクト
+                oCtx.globalAlpha = 1 - progress;
+                oCtx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                oCtx.beginPath();
+                oCtx.arc(0, 0, oTileSize * 0.4, 0, Math.PI * 2);
+                oCtx.fill();
+            }
+            oCtx.restore();
+        });
+    }
+}
+
+function updateOthelloUI() {
+    // 対戦が終わるまでスコアを隠す
+    if (!gameOver) {
+        oP1Score.textContent = "?";
+        oP2Score.textContent = "?";
+    }
+
+    oP1Sp.textContent = p1SpStones;
+    oP2Sp.textContent = p2SpStones;
+
+    if (!gameOver) {
+        if (o_currentPlayer === myPlayerNum) {
+            printTurnStatus(true);
+            othelloCanvas.style.cursor = 'pointer';
+        } else {
+            printTurnStatus(false);
+            othelloCanvas.style.cursor = 'not-allowed';
+        }
+
+        oP1Ping.classList.toggle('hidden', o_currentPlayer !== 1);
+        oP2Ping.classList.toggle('hidden', o_currentPlayer !== 2);
+    } else {
+        statusMessage.textContent = "ゲーム終了！";
+        statusMessage.classList.remove('animate-pulse');
+        oP1Ping.classList.add('hidden');
+        oP2Ping.classList.add('hidden');
+    }
+}
+
+// 石を1つずつ数えるアニメーション
+function startOthelloCountAnimation() {
+    othelloCanvas.style.cursor = 'default';
+
+    let currentP1Score = 0;
+    let currentP2Score = 0;
+    oP1Score.textContent = "0";
+    oP2Score.textContent = "0";
+
+    statusMessage.textContent = "結果発表！石を数えています...";
+    statusMessage.classList.remove('text-yellow-400', 'animate-bounce');
+    statusMessage.classList.add('text-white', 'animate-pulse');
+
+    // 盤面にある石をすべてリストアップ
+    const stones = [];
+    for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+            const val = othelloBoard[r][c];
+            if (val !== 0) stones.push({ r, c, val });
+        }
+    }
+
+    let i = 0;
+
+    function countNext() {
+        if (i < stones.length) {
+            const stone = stones[i];
+            const isP1 = (stone.val % 10 === 1);
+            const isSp = (stone.val > 10);
+            const points = isSp ? 5 : 1;
+
+            if (isP1) currentP1Score += points;
+            else currentP2Score += points;
+
+            oP1Score.textContent = currentP1Score;
+            oP2Score.textContent = currentP2Score;
+
+            // ピッ、ピッという音（Player1と2で音階を変える）
+            if (synth) {
+                synth.triggerAttackRelease(isP1 ? "E5" : "C5", "32n", Tone.now());
+            }
+
+            // 数えている石を一瞬光らせる
+            activeOthelloEffects.push({
+                row: stone.r, col: stone.c,
+                isSelf: false, // 回転などしないので適当でOK
+                type: 'count',
+                startTime: Date.now(),
+                duration: 400
+            });
+            if (activeOthelloEffects.length === 1) {
+                requestAnimationFrame(animateOthelloEffects);
+            }
+
+            i++;
+            setTimeout(countNext, 120); // 0.12秒間隔でリズミカルに数える
+        } else {
+            // 全て数え終わったら少しタメてから結果発表
+            setTimeout(() => {
+                finishOthelloGame(currentP1Score, currentP2Score);
+            }, 1000);
+        }
+    }
+
+    // ゲーム終了後、1秒待ってからカウント開始
+    setTimeout(countNext, 1000);
+}
+
+// 最終結果の表示
+function finishOthelloGame(score1, score2) {
+    statusMessage.textContent = "ゲーム終了！";
+    statusMessage.classList.remove('animate-pulse');
+    oP1Ping.classList.add('hidden');
+    oP2Ping.classList.add('hidden');
+
+    if (score1 > score2) o_currentPlayer = 1;
+    else if (score2 > score1) o_currentPlayer = 2;
+    else o_currentPlayer = 0; // 引き分け
+
+    showRematchPrompt(o_currentPlayer === myPlayerNum);
+}
+
+// ==========================================
+// オセロ用 サウンド＆エフェクト機能群
+// ==========================================
+
+function playCaptureSounds(count, isSelf) {
+    if (!synth) return;
+    const now = Tone.now();
+
+    // 自分が獲得：ドレミファソ...と明るく上がる音階
+    const selfNotes = ["C5", "D5", "E5", "F5", "G5", "A5", "B5", "C6", "D6", "E6", "F6", "G6", "A6"];
+    // 相手に獲得された：ソ、ファ#、ファ...と半音混じりで下がる残念な音階
+    const oppNotes = ["G4", "Gb4", "F4", "E4", "Eb4", "D4", "Db4", "C4", "B3", "Bb3", "A3", "Ab3", "G3"];
+
+    for (let i = 0; i < count; i++) {
+        let note = isSelf ? selfNotes[Math.min(i, selfNotes.length - 1)] : oppNotes[Math.min(i, oppNotes.length - 1)];
+        // 石の数だけ0.15秒ずらして連続で鳴らす
+        synth.triggerAttackRelease(note, "16n", now + i * 0.15);
+    }
+}
+
+function playSpStoneSound(isSelf) {
+    if (!synth) return;
+    const now = Tone.now();
+    if (isSelf) {
+        // ファンファーレ風 (自軍)
+        synth.triggerAttackRelease("C5", "8n", now);
+        synth.triggerAttackRelease("E5", "8n", now + 0.15);
+        synth.triggerAttackRelease("G5", "8n", now + 0.3);
+        synth.triggerAttackRelease("C6", "2n", now + 0.45);
+    } else {
+        // おどろおどろしいショック音 (敵軍)
+        synth.triggerAttackRelease("C4", "8n", now);
+        synth.triggerAttackRelease("Gb3", "8n", now + 0.15);
+        synth.triggerAttackRelease("C3", "2n", now + 0.3);
+        if (buzzerSynth) buzzerSynth.triggerAttackRelease("C2", "2n", now + 0.3);
+    }
+}
+
+function playOthelloSpAnimation(row, col, isSelf) {
+    // 盤面上のキラキラエフェクト登録 (2秒間)
+    activeOthelloEffects.push({
+        row, col, isSelf,
+        type: 'sp',
+        startTime: Date.now(),
+        duration: 2000
+    });
+
+    // エフェクトが1つ目の場合のみループを起動
+    if (activeOthelloEffects.length === 1) {
+        requestAnimationFrame(animateOthelloEffects);
+    }
+
+    // ババ抜きでも使っていた画面中央のデカ文字エフェクトを併用
+    if (isSelf) {
+        renderTextExpansionAnimation('✨おまん駒降臨✨', 10, 120, 3, 16, ['text-yellow-400', 'drop-shadow-2xl']);
+    } else {
+        renderTextExpansionAnimation('⚠️敵のおまん駒⚠️', 10, 120, 3, 16, ['text-red-600', 'bg-black', 'drop-shadow-2xl']);
+    }
+}
+
+function animateOthelloEffects() {
+    if (activeOthelloEffects.length === 0) return;
+
+    const now = Date.now();
+    // 期限切れのエフェクトを削除
+    activeOthelloEffects = activeOthelloEffects.filter(eff => (now - eff.startTime) < eff.duration);
+
+    drawOthelloGame(); // 再描画してエフェクトを更新
+
+    // まだエフェクトが残っていれば次フレームも呼び出す
+    if (activeOthelloEffects.length > 0) {
+        requestAnimationFrame(animateOthelloEffects);
+    }
+}
+
+// 汎用の星型・トゲトゲ描画ツール
+function drawStar(ctx, cx, cy, spikes, outerRadius, innerRadius) {
+    let rot = Math.PI / 2 * 3;
+    let x = cx;
+    let y = cy;
+    let step = Math.PI / spikes;
+
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - outerRadius);
+    for (let i = 0; i < spikes; i++) {
+        x = cx + Math.cos(rot) * outerRadius;
+        y = cy + Math.sin(rot) * outerRadius;
+        ctx.lineTo(x, y);
+        rot += step;
+
+        x = cx + Math.cos(rot) * innerRadius;
+        y = cy + Math.sin(rot) * innerRadius;
+        ctx.lineTo(x, y);
+        rot += step;
+    }
+    ctx.lineTo(cx, cy - outerRadius);
+    ctx.closePath();
+}
+
+
+// --- DOM初期化 ---
 function initializeDOMElements() {
     // 共通
     chatMessagesEl = document.getElementById('chat-messages');
@@ -3466,6 +4065,24 @@ function initializeDOMElements() {
     canvas = document.getElementById('game-board');
     if (canvas) { // canvasがnullでないことを確認
         ctx = canvas.getContext('2d');
+    }
+
+    // オセロ用DOM
+    gameChoiceOthelloBtn = document.getElementById('game-choice-othello');
+    othelloUI = document.getElementById('othello-ui');
+    oPlayer1Name = document.getElementById('o-player1-name');
+    oPlayer2Name = document.getElementById('o-player2-name');
+    oP1Score = document.getElementById('o-p1-score');
+    oP2Score = document.getElementById('o-p2-score');
+    oP1Sp = document.getElementById('o-p1-sp');
+    oP2Sp = document.getElementById('o-p2-sp');
+    oP1Ping = document.getElementById('o-p1-ping');
+    oP2Ping = document.getElementById('o-p2-ping');
+    oToggleSpBtn = document.getElementById('o-toggle-sp-btn');
+    othelloCanvas = document.getElementById('othello-board');
+    if (othelloCanvas) {
+        oCtx = othelloCanvas.getContext('2d');
+        window.addEventListener('resize', resizeOthelloCanvas);
     }
 
     // 共通 (ゲーム画面)

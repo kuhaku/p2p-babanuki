@@ -137,6 +137,7 @@
             <div class="border-t border-gray-300 py-2 my-3">
                 <h2 class="text-white">お知らせ</h2>
                 <ul>
+                    <li class="text-white">2026/3/3: おまこんリバーシを追加しましたヽ(´ ー｀)ノ</li>
                     <li class="text-white">2026/1/29: しばらく遊べなくなってた問題を解消しましたヽ(´ ー｀)ノ</li>
                     <li class="text-white">2025/11/14: コリドールを追加しましたヽ(´ー｀)ノ</li>
                     <li class="text-white">2025/11/13: ファイル共有機能追加ヽ(´ー｀)ノ</li>
@@ -376,6 +377,41 @@
                     </div>
                 </div>
 
+                <!-- オセロ -->
+                <div id="othello-ui" class="hidden">
+                    <div id="o-players-container" class="flex justify-between items-center md:py-2 py-1 space-x-1">
+                        <div id="o-player1-info"
+                            class="p-2 rounded-lg border-solid border-4 border-white bg-gray-200 order-1 w-1/3">
+                            <div class="text-black md:text-sm text-xs font-bold"><span id="o-p1-ping"
+                                    class="hidden text-green-600 animate-ping">●</span><span id="o-player1-name">黒:
+                                    プレイヤー1</span></div>
+                            <div class="text-black md:text-sm text-xs">スコア: <span id="o-p1-score">?</span></div>
+                            <div class="text-yellow-700 md:text-sm text-xs font-bold">おまん駒: <span id="o-p1-sp">5</span>
+                            </div>
+                        </div>
+
+                        <button id="o-toggle-sp-btn"
+                            class="md:text-sm text-xs px-2 py-4 bg-gray-500 text-white font-bold rounded-lg shadow-md transition focus:outline-none order-2 w-1/3 text-center">
+                            おまん駒を使う<br>(OFF)
+                        </button>
+
+                        <div id="o-player2-info"
+                            class="p-2 rounded-lg border-solid border-4 border-gray-800 bg-gray-700 order-3 w-1/3">
+                            <div class="text-white md:text-sm text-xs font-bold"><span id="o-p2-ping"
+                                    class="hidden text-green-400 animate-ping">●</span><span id="o-player2-name">白:
+                                    プレイヤー2</span></div>
+                            <div class="text-white md:text-sm text-xs">スコア: <span id="o-p2-score">?</span></div>
+                            <div class="text-yellow-300 md:text-sm text-xs font-bold">おまん駒: <span id="o-p2-sp">5</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div
+                        class="aspect-square w-full max-w-xl mx-auto bg-green-700 rounded-lg shadow-lg overflow-hidden border-4 border-black mt-2">
+                        <canvas id="othello-board"></canvas>
+                    </div>
+                </div>
+
                 <!-- 共通UI (チャット・ファイル送信・ロビー情報) -->
                 <div id="common-right-column" class="mt-2 md:mt-0">
                     <h3 class="md:text-lg font-semibold text-white mb-2">対戦部屋チャット</h3>
@@ -456,8 +492,12 @@
                 <p id="game-choice-modal-body" class="text-gray-700 mb-6">どのゲームに招待しますか？</p>
                 <div id="game-choice-modal-buttons" class="flex flex-col space-y-3">
                     <button id="game-choice-babanuki"
-                        class="bg-green-600 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-green-700 transition duration-300">
+                        class="bg-blue-600 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-blue-700 transition duration-300">
                         ババ抜き
+                    </button>
+                    <button id="game-choice-othello"
+                        class="bg-green-600 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-green-700 transition duration-300">
+                        おまこんリバーシ (オセロ)
                     </button>
                     <button id="game-choice-quoridor"
                         class="bg-violet-600 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-violet-700 transition duration-300">
@@ -472,6 +512,17 @@
             </div>
         </div>
         <div class="text-white">
+            <h2 class="underline cursor-pointer"
+                onclick="document.getElementById('omanko-rule').classList.toggle('hidden');">
+                おまこんリバーシのルール説明 ▼</h2>
+            <div id="omanko-rule" class="hidden">
+                <h3 class="py-4 text-xl font-bold text-yellow-400">ルール</h3>
+                <p>通常のリバーシ (オセロ) におまん駒が追加されたゲームです。</p>
+                <p>おまん駒は、通常の駒の5倍の価値があり、対戦終了後に盤面のおまん駒1つあたりスコアに5点計上されます。</p>
+                <p>各プレイヤーはおまん駒を5つ持っていて、好きなタイミングで使うことができます。</p>
+                <p>盤面に置かれていないおまん駒は、スコアに計上されません。</p>
+                <p>おまん駒は、通常の駒と同様に自分の色の駒で挟むと自分の駒になります。</p>
+            </div>
             <h2 class="underline cursor-pointer"
                 onclick="document.getElementById('quoridor-rule').classList.toggle('hidden');">
                 コリドールのルール説明 ▼</h2>

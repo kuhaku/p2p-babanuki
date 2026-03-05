@@ -1884,6 +1884,7 @@ function cleanupConnection(shouldShowLobby = true) {
     // UIを隠す
     if (babanukiUI) babanukiUI.classList.add('hidden');
     if (quoridorUI) quoridorUI.classList.add('hidden');
+    if (othelloUI) othelloUI.classList.add('hidden');
 
     // ファイルUIをリセット
     if (fileInputEl) fileInputEl.disabled = true;
@@ -2170,6 +2171,7 @@ function setupGameUI() {
         // ババ抜きUI表示
         babanukiUI.classList.remove('hidden');
         quoridorUI.classList.add('hidden');
+        othelloUI.classList.add('hidden');
 
         // ババ抜き用UI要素のセットアップ
         myNameEl.innerText = `${myName} (貴殿)`;
@@ -2182,6 +2184,7 @@ function setupGameUI() {
         // コリドールUI表示
         babanukiUI.classList.add('hidden');
         quoridorUI.classList.remove('hidden');
+        othelloUI.classList.add('hidden');
 
         // コリドール用UI要素のセットアップ
         // P1 (ホスト) が青、 P2 (ゲスト) が赤

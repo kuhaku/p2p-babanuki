@@ -3494,21 +3494,32 @@ function switchQuoridorTurn() {
 }
 
 
-// --- 12. オセロ ゲームロジック ---
+// --- 12. おまこんリバーシ ゲームロジック ---
 function initOthelloGame() {
-    othelloBoard = Array(8).fill(null).map(() => Array(8).fill(0));
-    // 初期配置
-    othelloBoard[3][3] = 2; // 白
-    othelloBoard[4][4] = 2; // 白
-    othelloBoard[3][4] = 1; // 黒
-    othelloBoard[4][3] = 1; // 黒
+    othelloBoard = Array(6).fill(null).map(() => Array(6).fill(0));
 
-    p1SpStones = 5;
-    p2SpStones = 5;
-    o_currentPlayer = 1; // 黒(ホスト)が先手
+    // 初期配置 (6x6の中心座標は [2] と [3])
+    othelloBoard[2][2] = 2; // 白
+    othelloBoard[3][3] = 2; // 白
+    othelloBoard[2][3] = 1; // 黒
+    othelloBoard[3][2] = 1; // 黒
+
+    // 先攻（最初に行動するプレイヤー）をランダムに決定 (1:黒, 2:白)
+    o_currentPlayer = (Math.random() < 0.5) ? 1 : 2;
+
+    // 先攻になった方のおまん駒を3つ、後攻を5つに設定
+    if (o_currentPlayer === 1) {
+        p1SpStones = 3;
+        p2SpStones = 5;
+    } else {
+        p1SpStones = 5;
+        p2SpStones = 3;
+    }
+
     useSpStoneMode = false;
     gameOver = false;
 
+    // ゲスト側に初期状態を同期
     sendData({
         type: 'othello-init',
         board: othelloBoard,
@@ -3633,7 +3644,7 @@ function getFlippableStones(row, col, playerNum) {
         let tempFlips = [];
 
         // 相手の石（1or11, 2or22）を判定
-        while (r >= 0 && r < 8 && c >= 0 && c < 8) {
+        while (r >= 0 && r < 6 && c >= 0 && c < 6) {
             const val = othelloBoard[r][c];
             if (val === 0) break;
 
@@ -3674,8 +3685,8 @@ function checkOthelloTurn() {
 }
 
 function canPlayerMove(playerNum) {
-    for (let r = 0; r < 8; r++) {
-        for (let c = 0; c < 8; c++) {
+    for (let r = 0; r < 6; r++) {
+        for (let c = 0; c < 6; c++) {
             if (getFlippableStones(r, c, playerNum).length > 0) return true;
         }
     }
@@ -3684,8 +3695,8 @@ function canPlayerMove(playerNum) {
 
 function calculateOthelloScore() {
     let p1 = 0; let p2 = 0;
-    for (let r = 0; r < 8; r++) {
-        for (let c = 0; c < 8; c++) {
+    for (let r = 0; r < 6; r++) {
+        for (let c = 0; c < 6; c++) {
             const val = othelloBoard[r][c];
             if (val === 1) p1 += 1;
             if (val === 11) p1 += 5; // おまん駒は5点
@@ -3701,7 +3712,7 @@ function resizeOthelloCanvas() {
     const size = Math.min(othelloCanvas.parentElement.clientWidth, 600);
     othelloCanvas.width = size;
     othelloCanvas.height = size;
-    oTileSize = size / 8;
+    oTileSize = size / 6;
     drawOthelloGame();
 }
 
@@ -3713,7 +3724,7 @@ function drawOthelloGame() {
     // グリッド描画
     oCtx.strokeStyle = '#000';
     oCtx.lineWidth = 2;
-    for (let i = 1; i < 8; i++) {
+    for (let i = 1; i < 6; i++) {
         oCtx.beginPath();
         oCtx.moveTo(i * oTileSize, 0);
         oCtx.lineTo(i * oTileSize, othelloCanvas.height);
@@ -3726,8 +3737,8 @@ function drawOthelloGame() {
 
     // 石の描画
     const radius = oTileSize * 0.4;
-    for (let r = 0; r < 8; r++) {
-        for (let c = 0; c < 8; c++) {
+    for (let r = 0; r < 6; r++) {
+        for (let c = 0; c < 6; c++) {
             // othelloBoard[r] がまだ作られていない（ゲーム開始前などの）場合はエラーになるのでスキップ
             if (!othelloBoard || !othelloBoard[r]) continue;
 
@@ -3838,8 +3849,8 @@ function startOthelloCountAnimation() {
 
     // 盤面にある石をすべてリストアップ
     const stones = [];
-    for (let r = 0; r < 8; r++) {
-        for (let c = 0; c < 8; c++) {
+    for (let r = 0; r < 6; r++) {
+        for (let c = 0; c < 6; c++) {
             const val = othelloBoard[r][c];
             if (val !== 0) stones.push({ r, c, val });
         }

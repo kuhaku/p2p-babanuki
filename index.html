@@ -4,21 +4,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ババ活 (P2P オンラインゲーム対戦)</title>
+    <title>ババ活ラウンジ (P2P オンラインゲーム対戦)</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- フォント -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <!-- Supabase Client CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Tone.js CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+    <!-- ゲームスクリプト -->
     <script src="babanuki.js"></script>
     <style>
         /* フォント設定 */
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+
+        :root {
+            --neon-blue: #00f3ff;
+        }
+
         body {
             font-family: "MS Gothic", "Inter", "Hiragino Kaku Gothic ProN", sans-serif;
             color: white;
             /* スマホでの操作性向上 */
             touch-action: manipulation;
+        }
+
+        .font-orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .neon-text-blue {
+            text-shadow: 0 0 5px var(--neon-blue), 0 0 10px var(--neon-blue);
+            color: var(--neon-blue);
         }
 
         /* カードのスタイル */
@@ -123,7 +141,7 @@
 
         <!-- 画面 1: 名前入力 & 接続 -->
         <div id="setup-screen" class="p-6">
-            <h1 class="text-2xl font-bold text-center text-white">P2P ババ活</h1>
+            <h1 class="text-2xl font-orbitron font-bold text-center tracking-wider neon-text-blue">P2P ババ活ラウンジ</h1>
             <div class="mb-4 text-white border-gray-300 py-2">
                 <label for="name-input" class="block text-sm font-medium text-white mb-1">貴殿の名前:</label>
                 <input type="text" id="name-input"

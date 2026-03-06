@@ -1882,6 +1882,9 @@ function cleanupConnection(shouldShowLobby = true) {
     statusMessage.classList.add('animate-pulse');
 
     // UIを隠す
+    babanukiUI = document.getElementById('babanuki-ui');
+    quoridorUI = document.getElementById('quoridor-ui');
+    othelloUI = document.getElementById('othello-ui');
     if (babanukiUI) babanukiUI.classList.add('hidden');
     if (quoridorUI) quoridorUI.classList.add('hidden');
     if (othelloUI) othelloUI.classList.add('hidden');
@@ -2166,6 +2169,14 @@ function setupGameUI() {
     setupGameChat(roomId);
     // ロビーにいる他プレイヤー情報を表示
     showActiveLobbyUsersInGame(lobbyChannel.presenceState());
+
+    // いったん全てのゲームUIを隠す
+    babanukiUI = document.getElementById('babanuki-ui');
+    quoridorUI = document.getElementById('quoridor-ui');
+    othelloUI = document.getElementById('othello-ui');
+    if (babanukiUI) babanukiUI.classList.add('hidden');
+    if (quoridorUI) quoridorUI.classList.add('hidden');
+    if (othelloUI) othelloUI.classList.add('hidden');
 
     if (currentGameType === 'babanuki') {
         // ババ抜きUI表示

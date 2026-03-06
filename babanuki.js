@@ -3371,26 +3371,23 @@ function isWallBlocking(pos1, pos2) {
     const dx = pos2.x - pos1.x;
     const dy = pos2.y - pos1.y;
 
-    try {
-        if (dy === -1) { // 上
-            const r = pos2.y; // 0..7
-            return (horizontalWalls[r][pos1.x] || (pos1.x > 0 && horizontalWalls[r][pos1.x - 1]));
-        }
-        if (dy === 1) { // 下
-            const r = pos1.y; // 0..7
-            return (horizontalWalls[r][pos1.x] || (pos1.x > 0 && horizontalWalls[r][pos1.x - 1]));
-        }
-        if (dx === -1) { // 左
-            const c = pos2.x; // 0..7
-            return (verticalWalls[pos1.y][c] || (pos1.y > 0 && verticalWalls[pos1.y - 1][c]));
-        }
-        if (dx === 1) { // 右
-            const c = pos1.x; // 0..7
-            return (verticalWalls[pos1.y][c] || (pos1.y > 0 && verticalWalls[pos1.y - 1][c]));
-        }
-    } catch (e) {
-        return false;
+    if (dy === -1) { // 上へ移動
+        const r = pos2.y; // 0..7
+        return !!(horizontalWalls[r]?.[pos1.x] || (pos1.x > 0 && horizontalWalls[r]?.[pos1.x - 1]));
     }
+    if (dy === 1) { // 下へ移動
+        const r = pos1.y; // 0..7
+        return !!(horizontalWalls[r]?.[pos1.x] || (pos1.x > 0 && horizontalWalls[r]?.[pos1.x - 1]));
+    }
+    if (dx === -1) { // 左へ移動
+        const c = pos2.x; // 0..7
+        return !!(verticalWalls[pos1.y]?.[c] || (pos1.y > 0 && verticalWalls[pos1.y - 1]?.[c]));
+    }
+    if (dx === 1) { // 右へ移動
+        const c = pos1.x; // 0..7
+        return !!(verticalWalls[pos1.y]?.[c] || (pos1.y > 0 && verticalWalls[pos1.y - 1]?.[c]));
+    }
+
     return false;
 }
 

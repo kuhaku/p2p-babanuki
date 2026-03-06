@@ -3973,9 +3973,9 @@ function playOthelloSpAnimation(row, col, isSelf) {
 
     // ババ抜きでも使っていた画面中央のデカ文字エフェクトを併用
     if (isSelf) {
-        renderTextExpansionAnimation('✨おまん駒降臨✨', 10, 120, 3, 16, ['text-yellow-400', 'drop-shadow-2xl']);
+        renderTextExpansionAnimation('✨おまん駒降臨✨', 7, 120, 3, 16, ['text-yellow-400', 'drop-shadow-2xl']);
     } else {
-        renderTextExpansionAnimation('⚠️敵のおまん駒⚠️', 10, 120, 3, 16, ['text-red-600', 'bg-black', 'drop-shadow-2xl']);
+        renderTextExpansionAnimation('⚠️おまん駒だ⚠️', 7, 120, 3, 16, ['text-red-600', 'bg-black', 'drop-shadow-2xl']);
     }
 }
 

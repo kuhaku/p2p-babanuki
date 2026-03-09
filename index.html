@@ -91,6 +91,11 @@
             color: transparent;
         }
 
+        /* ぶたのしっぽの山のカードだけピンク色にする */
+        #buta-circle-cards .card-back {
+            background-color: #FBCFE8;
+        }
+
         /* 赤いカード（ダイヤとハート） */
         .card.red {
             color: #E53E3E;
@@ -135,7 +140,7 @@
     </style>
 </head>
 
-<div class="text-gray-800 w-full" style="background-color: #004040;">
+<body class="text-gray-800 w-full" style="background-color: #004040;">
 
     <div id="app" class="container min-h-screen mx-auto md:mx-4 sm:mx-1 w-full">
 
@@ -158,6 +163,7 @@
                 <hr>
                 <h2 class="text-white">お知らせ</h2>
                 <ul>
+                    <li class="text-white">2026/3/9: ぶたのしっぽを追加しましたヽ(´ ー｀)ノ</li>
                     <li class="text-white">2026/3/6: おまこんリバーシのプレイ時間を短くして気軽に遊べるようにルールを変更しましたヽ(´ ー｀)ノ</li>
                     <li class="text-white">2026/3/3: おまこんリバーシを追加しましたヽ(´ ー｀)ノ</li>
                     <li class="text-white">2026/1/29: しばらく遊べなくなってた問題を解消しましたヽ(´ ー｀)ノ</li>
@@ -330,6 +336,7 @@
             <!-- ゲームUI -->
             <div class="md:grid md:grid-cols-2 gap-6">
                 <!-- ババ抜きUI -->
+
                 <div id="babanuki-ui" class="hidden">
                     <!-- 相手の手札 -->
                     <div class="mb-3 p-2 bg-green-800 rounded-lg shadow-lg">
@@ -431,6 +438,63 @@
                     <div
                         class="aspect-square w-full max-w-xl mx-auto bg-green-700 rounded-lg shadow-lg overflow-hidden border-4 border-black mt-2">
                         <canvas id="othello-board"></canvas>
+                    </div>
+                </div>
+
+                <div id="buta-ui" class="hidden">
+                    <div class="flex justify-between items-center mb-2 p-2 bg-pink-800 rounded-lg shadow-md">
+                        <h3 id="buta-opponent-name" class="text-white lg:text-lg font-semibold text-center">敵</h3>
+                        <div class="text-white">ペナルティ: <span id="buta-opponent-penalty"
+                                class="font-bold text-yellow-300 text-xl">0</span> 枚</div>
+                    </div>
+
+                    <div class="flex flex-col items-center my-4">
+                        <div
+                            class="relative w-[260px] h-[260px] md:w-[360px] md:h-[360px] mb-2 flex items-center justify-center">
+
+                            <div class="text-center text-white z-0 flex flex-col items-center justify-center">
+                                <span class="text-sm md:text-base font-semibold text-gray-200">残りカード</span>
+                                <div class="font-bold text-6xl md:text-7xl text-yellow-300 drop-shadow-lg my-1"><span
+                                        id="buta-deck-count">52</span></div>
+                                <span class="text-sm md:text-base font-semibold text-gray-200">枚</span>
+                            </div>
+
+                            <div id="buta-circle-cards" class="absolute inset-0 z-10 pointer-events-none"></div>
+                        </div>
+
+                        <div class="flex items-center justify-center space-x-4 md:space-x-8 mt-2">
+                            <div class="flex flex-col items-center">
+                                <span class="text-xs text-gray-300 font-bold mb-1">場のカード</span>
+                                <div id="buta-center-pile"
+                                    class="card border-dashed border-2 border-gray-400 bg-transparent flex justify-center items-center shadow-inner relative">
+                                    <span class="text-gray-400 text-lg font-bold">空</span>
+                                </div>
+                                <div id="buta-center-count"
+                                    class="hidden mt-1 bg-gray-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md z-10">
+                                    0枚</div>
+                            </div>
+
+                            <div class="text-2xl font-bold text-white">VS</div>
+
+                            <div class="flex flex-col items-center">
+                                <span class="text-xs text-yellow-300 font-bold mb-1">引いたカード</span>
+                                <div id="buta-drawn-card"
+                                    class="card border-dashed border-2 border-yellow-400 bg-transparent flex justify-center items-center shadow-inner">
+                                    <span class="text-yellow-600 text-lg font-bold">？</span>
+                                </div>
+                                <div class="mt-1 invisible px-3 py-1 text-xs">ダミー</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="buta-message" class="text-center text-white md:text-lg font-semibold my-2 min-h-[30px]"
+                        style="overflow: clip;">
+                    </div>
+
+                    <div class="flex justify-between items-center mt-2 p-2 bg-pink-800 rounded-lg shadow-md">
+                        <h3 id="buta-my-name" class="text-white md:text-lg font-semibold text-center">自分</h3>
+                        <div class="text-white">ペナルティ: <span id="buta-my-penalty"
+                                class="font-bold text-yellow-300 text-xl">0</span> 枚</div>
                     </div>
                 </div>
 
@@ -573,7 +637,7 @@
             </div>
         </div>
     </div>
-</div>
+    </div>
 </body>
 
 </html>

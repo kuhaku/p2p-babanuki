@@ -14,7 +14,7 @@ const SYSTEM_USER_NAME = '通知';
 const SYSTEM_USER_ID = 'system';
 
 // ゲーム共通
-let currentGameType = null; // 'babanuki' or 'quoridor'
+let currentGameType = null; // 'babanuki', 'quoridor', 'othello', or 'buta'
 let myPlayerNum = 0; // 1 (ホスト) or 2 (ゲスト)
 
 // ボイスレスモード
@@ -100,7 +100,7 @@ const configuration = {
 // --- ババ抜き用ゲーム変数 ---
 let myHand = [];
 let opponentHandSize = 0;
-let myTurn = false; // ババ抜き専用のターンフラグ
+let myTurn = false; // 汎用ターンフラグとしても使用
 const SUITS = ['♥', '♦', '♠', '♣'];
 const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
 const JOKER = { suit: 'JOKER', rank: 'JOKER', display: 'JOKER', color: 'black' };
@@ -108,6 +108,16 @@ const BABA_EFFECT_START_FONT_SIZE = 40; // 開始時のフォントサイズ (px
 const BABA_EFFECT_MAX_FONT_SIZE = 250;  // 最大のフォントサイズ (px)
 const BABA_EFFECT_GROWTH_RATE = 4; // 1フレーム（更新ごと）に大きくなる量 (px)
 const BABA_EFFECT_CLASS_LIST = ['text-red-600', 'bg-black'];
+
+// --- ぶたのしっぽ用ゲーム変数 ---
+let butaDeck = [];
+let butaCenterPile = [];
+let butaP1Penalty = 0;
+let butaP2Penalty = 0;
+let butaCurrentPlayer = 1;
+let butaLastDrawnCard = null;
+let butaPreviousCenterCard = null;
+let butaLastMatch = false;
 
 // --- コリドール用ゲーム変数 ---
 const Q_BOARD_SIZE = 9; // 9x9 グリッド
@@ -638,6 +648,7 @@ function showGameChoiceModal(targetUserId, targetName) {
     gameChoiceBabanukiBtn.onclick = () => sendInvite(targetUserId, targetName, 'babanuki');
     gameChoiceQuoridorBtn.onclick = () => sendInvite(targetUserId, targetName, 'quoridor');
     gameChoiceOthelloBtn.onclick = () => sendInvite(targetUserId, targetName, 'othello');
+    gameChoiceButaBtn.onclick = () => sendInvite(targetUserId, targetName, 'buta');
     gameChoiceCancelBtn.onclick = hideGameChoiceModal;
 }
 
@@ -1269,6 +1280,7 @@ function sendInvite(targetUserId, targetName, gameType) {
         userStatus = 'busy';
         updateMyPresence();
     }
+    let gameName = '';
     switch (gameType) {
         case 'babanuki':
             gameName = 'ババ抜き';
@@ -1278,6 +1290,9 @@ function sendInvite(targetUserId, targetName, gameType) {
             break;
         case 'othello':
             gameName = 'おまこんリバーシ (オセロ)';
+            break;
+        case 'buta':
+            gameName = 'ぶたのしっぽ';
             break;
     }
     showModal('招待中', `${targetName} を ${gameName} に誘ってます……`, [
@@ -1334,6 +1349,7 @@ function handleInvite(payload) {
     // 招待受信音を鳴らす
     playInviteSound();
 
+    let gameName = '';
     switch (currentGameType) {
         case 'babanuki':
             gameName = 'ババ抜き';
@@ -1343,6 +1359,9 @@ function handleInvite(payload) {
             break;
         case 'othello':
             gameName = 'おまこんリバーシ (オセロ)';
+            break;
+        case 'buta':
+            gameName = 'ぶたのしっぽ';
             break;
     }
     showModal('挑戦者現る！', `${payload.senderName}から ${gameName} のお誘いがきました`, [
@@ -1460,6 +1479,9 @@ function handleAccept(payload) {
             break;
         case 'othello':
             gameName = 'おまこんリバーシ (オセロ)';
+            break;
+        case 'buta':
+            gameName = 'ぶたのしっぽ';
             break;
     }
     sendLobbyNotification(`${myName} と ${opponentName} の ${gameName} 対戦開始`);
@@ -1618,9 +1640,11 @@ function setupDataChannelListeners() {
             if (currentGameType === 'babanuki') {
                 initializeBabanukiGame();
             } else if (currentGameType === 'quoridor') {
-                initQuoridorGame(); // ホストがコリドールを初期化
+                initQuoridorGame();
             } else if (currentGameType === 'othello') {
-                initOthelloGame(); // ホストがオセロを初期化
+                initOthelloGame();
+            } else if (currentGameType === 'buta') {
+                initButaGame();
             }
             // ホスト側のみ roomId を生成・送信
             createRoomAndShare();
@@ -1650,6 +1674,8 @@ function setupDataChannelListeners() {
             handleQuoridorData(msg);
         } else if (msg.gameType === 'othello') {
             handleOthelloData(msg);
+        } else if (msg.gameType === 'buta') {
+            handleButaData(msg);
         } else {
             // ゲームタイプが不明な共通メッセージ（チャットルームIDなど）
             switch (msg.type) {
@@ -1674,8 +1700,6 @@ function setupDataChannelListeners() {
                     rate = msg.rate;
                     speakText(text, pitch, rate);
                     break;
-                // ババ抜きのリマッチリクエストはゲームタイプを付与していなかったので、
-                // 互換性のためにここで処理する
                 case 'rematch-request':
                     handleRematchRequest();
                     break;
@@ -1885,9 +1909,11 @@ function cleanupConnection(shouldShowLobby = true) {
     babanukiUI = document.getElementById('babanuki-ui');
     quoridorUI = document.getElementById('quoridor-ui');
     othelloUI = document.getElementById('othello-ui');
+    butaUI = document.getElementById('buta-ui');
     if (babanukiUI) babanukiUI.classList.add('hidden');
     if (quoridorUI) quoridorUI.classList.add('hidden');
     if (othelloUI) othelloUI.classList.add('hidden');
+    if (butaUI) butaUI.classList.add('hidden');
 
     // ファイルUIをリセット
     if (fileInputEl) fileInputEl.disabled = true;
@@ -1921,6 +1947,16 @@ function resetGameVariables() {
     verticalWalls = null;
     gameOver = false;
     currentAction = 'move';
+
+    // ぶたのしっぽ
+    butaDeck = [];
+    butaCenterPile = [];
+    butaP1Penalty = 0;
+    butaP2Penalty = 0;
+    butaCurrentPlayer = 1;
+    butaLastDrawnCard = null;
+    butaPreviousCenterCard = null;
+    butaLastMatch = false;
 
     // 再戦フラグをリセット
     rematchRequested = false;
@@ -2174,15 +2210,18 @@ function setupGameUI() {
     babanukiUI = document.getElementById('babanuki-ui');
     quoridorUI = document.getElementById('quoridor-ui');
     othelloUI = document.getElementById('othello-ui');
+    butaUI = document.getElementById('buta-ui');
     if (babanukiUI) babanukiUI.classList.add('hidden');
     if (quoridorUI) quoridorUI.classList.add('hidden');
     if (othelloUI) othelloUI.classList.add('hidden');
+    if (butaUI) butaUI.classList.add('hidden');
 
     if (currentGameType === 'babanuki') {
         // ババ抜きUI表示
         babanukiUI.classList.remove('hidden');
         quoridorUI.classList.add('hidden');
         othelloUI.classList.add('hidden');
+        butaUI.classList.add('hidden');
 
         // ババ抜き用UI要素のセットアップ
         myNameEl.innerText = `${myName} (貴殿)`;
@@ -2193,9 +2232,10 @@ function setupGameUI() {
 
     } else if (currentGameType === 'quoridor') {
         // コリドールUI表示
-        babanukiUI.classList.add('hidden');
         quoridorUI.classList.remove('hidden');
+        babanukiUI.classList.add('hidden');
         othelloUI.classList.add('hidden');
+        butaUI.classList.add('hidden');
 
         // コリドール用UI要素のセットアップ
         // P1 (ホスト) が青、 P2 (ゲスト) が赤
@@ -2222,9 +2262,10 @@ function setupGameUI() {
         resizeQuoridorCanvas();
     } else if (currentGameType === 'othello') {
         // オセロUI表示
+        othelloUI.classList.remove('hidden');
         babanukiUI.classList.add('hidden');
         quoridorUI.classList.add('hidden');
-        othelloUI.classList.remove('hidden');
+        butaUI.classList.add('hidden');
 
         // 表示順変更のための要素取得
         const oPlayer1Info = document.getElementById('o-player1-info');
@@ -2253,6 +2294,16 @@ function setupGameUI() {
         othelloCanvas.addEventListener('click', handleOthelloBoardClick);
         oToggleSpBtn.onclick = toggleSpStoneMode;
         resizeOthelloCanvas();
+    } else if (currentGameType === 'buta') {
+        // ぶたのしっぽUI表示
+        butaUI.classList.remove('hidden');
+        babanukiUI.classList.add('hidden');
+        quoridorUI.classList.add('hidden');
+        othelloUI.classList.add('hidden');
+
+        butaMyNameEl.innerText = `${myName} (貴殿)`;
+        butaOpponentNameEl.innerText = `${opponentName} (敵)`;
+        butaMessageEl.textContent = '';
     }
 }
 
@@ -2594,6 +2645,8 @@ function showRematchPrompt(isWinner) {
             resultMessage = `${myName} が ${opponentName} にコリドールで勝利しました！`;
         } else if (currentGameType === 'othello') {
             resultMessage = `${myName} が ${opponentName} におまこんリバーシ (オセロ)で勝利しました！`;
+        } else if (currentGameType === 'buta') {
+            resultMessage = `${myName} が ${opponentName} にぶたのしっぽで勝利しました！`;
         }
         sendLobbyNotification(resultMessage);  // ロビーチャットに結果を通知
     } else {
@@ -2777,18 +2830,23 @@ function restartGame() {
     } else if (currentGameType === 'quoridor') {
         if (isHost) {
             statusMessage.textContent = "再戦開始...盤面を準備しています...";
-            initQuoridorGame(); // ホストがコリドールを再初期化
+            initQuoridorGame();
         } else {
             statusMessage.textContent = "再戦開始...ホストを待っています...";
-            // ゲストは 'quoridor-init' を待つ
         }
     } else if (currentGameType === 'othello') {
         if (isHost) {
             statusMessage.textContent = "再戦開始...盤面を準備しています...";
-            initOthelloGame(); // ホストがオセロを再初期化
+            initOthelloGame();
         } else {
             statusMessage.textContent = "再戦開始...ホストを待っています...";
-            // ゲストは 'othello-init' を待つ
+        }
+    } else if (currentGameType === 'buta') {
+        if (isHost) {
+            statusMessage.textContent = "再戦開始...カードを準備しています...";
+            initButaGame();
+        } else {
+            statusMessage.textContent = "再戦開始...ホストを待っています...";
         }
     }
 }
@@ -2981,13 +3039,13 @@ function renderOpponentHand() {
 function updateTurnStatus(shouldSendUpdate = true) {
     if (myTurn) {
         printTurnStatus(myTurn = true);
-        opponentHandContainer.classList.add('cursor-pointer');
+        if (opponentHandContainer) opponentHandContainer.classList.add('cursor-pointer');
     } else {
         printTurnStatus(myTurn = false);
-        opponentHandContainer.classList.remove('cursor-pointer');
+        if (opponentHandContainer) opponentHandContainer.classList.remove('cursor-pointer');
     }
     // 相手の手札を再描画 (クリック可/不可を反映)
-    renderOpponentHand();
+    if (currentGameType === 'babanuki') renderOpponentHand();
 
     // 相手に現在の自分のターン状態を通知
     if (shouldSendUpdate) {
@@ -4027,6 +4085,311 @@ function drawStar(ctx, cx, cy, spikes, outerRadius, innerRadius) {
 }
 
 
+// --- 13. ぶたのしっぽ ゲームロジック ---
+function setupButaCircle(deck) {
+    const container = document.getElementById('buta-circle-cards');
+    if (!container) return;
+    container.innerHTML = '';
+    const total = deck.length;
+
+    // スマホとPCで半径を変える
+    const isMobile = window.innerWidth < 768;
+    const radiusY = isMobile ? 120 : 160;
+
+    deck.forEach((card, i) => {
+        // カードの角度 (360度を枚数で分割)
+        const angle = (i / total) * 360;
+
+        const wrapper = document.createElement('div');
+        // 親要素の中央に絶対配置し、pointer-events-autoで自身のクリックを有効にする
+        wrapper.className = 'absolute top-1/2 left-1/2 pointer-events-auto';
+        // 中央から回転させ、Y方向に移動させることで円状に配置
+        wrapper.style.transform = `translate(-50%, -50%) rotate(${angle}deg) translateY(-${radiusY}px)`;
+        wrapper.style.zIndex = i + 1;
+        wrapper.id = `buta-card-wrapper-${card.display}`;
+
+        const cardEl = document.createElement('div');
+        cardEl.className = 'card card-back shadow-md transition-transform duration-200';
+        // カードのサイズを固定 (元より少し小さくする)
+        cardEl.style.width = isMobile ? '35px' : '45px';
+        cardEl.style.height = isMobile ? '50px' : '65px';
+        cardEl.style.margin = '0';
+
+        // ホバーした時に、カードを少し外側に飛び出させて重なり順を一番上にする
+        cardEl.onmouseenter = () => {
+            if (gameOver || butaCurrentPlayer !== myPlayerNum) return;
+            cardEl.style.transform = 'translateY(-15px) scale(1.1)';
+            wrapper.style.zIndex = 100;
+        };
+        // ホバーが外れたら元に戻す
+        cardEl.onmouseleave = () => {
+            cardEl.style.transform = 'translateY(0) scale(1)';
+            wrapper.style.zIndex = i + 1;
+        };
+
+        cardEl.onclick = () => drawButaCard(card.display);
+
+        wrapper.appendChild(cardEl);
+        container.appendChild(wrapper);
+    });
+}
+
+function initButaGame() {
+    // ジョーカーを抜いた52枚のデッキを用意しシャッフル
+    butaDeck = createDeck().filter(c => c.rank !== 'JOKER');
+    butaCenterPile = [];
+    butaP1Penalty = 0;
+    butaP2Penalty = 0;
+    butaCurrentPlayer = (Math.random() < 0.5) ? 1 : 2; // 先攻をランダムに決定
+    gameOver = false;
+    butaLastDrawnCard = null;
+    butaPreviousCenterCard = null;
+    butaLastMatch = false;
+
+    // ゲストへ初期情報を送信
+    sendData({
+        type: 'buta-init',
+        deck: butaDeck,
+        currentPlayer: butaCurrentPlayer
+    });
+
+    // 円状のカードを生成
+    setupButaCircle(butaDeck);
+    updateButaUI();
+    // ゲーム開始音
+    playDealSound();
+}
+
+function handleButaData(msg) {
+    switch (msg.type) {
+        case 'buta-init':
+            butaDeck = msg.deck;
+            butaCenterPile = [];
+            butaP1Penalty = 0;
+            butaP2Penalty = 0;
+            butaCurrentPlayer = msg.currentPlayer;
+            gameOver = false;
+            butaLastDrawnCard = null;
+            butaPreviousCenterCard = null;
+            butaLastMatch = false;
+
+            setupButaCircle(butaDeck);
+            updateButaUI();
+            playDealSound();
+            break;
+
+        case 'buta-draw':
+            const cardDisp = msg.card.display;
+            const cIdx = butaDeck.findIndex(c => c.display === cardDisp);
+            if (cIdx !== -1) {
+                butaDeck.splice(cIdx, 1);
+            }
+
+            // 該当のカードのDOM要素を削除
+            const wrapper = document.getElementById(`buta-card-wrapper-${cardDisp}`);
+            if (wrapper) wrapper.remove();
+
+            let match = msg.match;
+            let card = msg.card;
+            let penaltyCards = 0;
+
+            if (butaCenterPile.length > 0) {
+                butaPreviousCenterCard = butaCenterPile[butaCenterPile.length - 1];
+            } else {
+                butaPreviousCenterCard = null;
+            }
+            butaLastDrawnCard = card;
+            butaLastMatch = match;
+
+            if (match) {
+                penaltyCards = butaCenterPile.length + 1;
+                if (msg.playerNum === 1) {
+                    butaP1Penalty += penaltyCards;
+                } else {
+                    butaP2Penalty += penaltyCards;
+                }
+                butaCenterPile = [];
+            } else {
+                butaCenterPile.push(card);
+            }
+
+            // UIとサウンドの更新
+            playClickSound();
+            if (match) {
+                playBuzzerSound();
+                butaMessageEl.textContent = `敵が引いた「${card.display}」は、場のマークと一致するのでペナルティ${penaltyCards}枚(^Д^)`;
+                butaMessageEl.classList.replace('text-white', 'text-yellow-300');
+            } else {
+                butaMessageEl.textContent = `敵が「${card.display}」を引きました。`;
+                butaMessageEl.classList.replace('text-yellow-300', 'text-white');
+            }
+
+            // ターン交代
+            butaCurrentPlayer = (msg.playerNum === 1) ? 2 : 1;
+
+            // 終了判定
+            if (butaDeck.length === 0) {
+                gameOver = true;
+                setTimeout(finishButaGame, 1500);
+            }
+
+            updateButaUI();
+            break;
+    }
+}
+
+// クリックされたカードの情報を引数に受け取るように変更
+function drawButaCard(cardDisplay) {
+    if (gameOver || butaCurrentPlayer !== myPlayerNum) {
+        return; // 操作できない状態
+    }
+
+    // 自分が行うドローの実行
+    executeButaDraw(cardDisplay);
+}
+
+function executeButaDraw(cardDisplay) {
+    const cardIndex = butaDeck.findIndex(c => c.display === cardDisplay);
+    if (cardIndex === -1) return;
+
+    // 指定されたカードをデッキから取り除く
+    const card = butaDeck.splice(cardIndex, 1)[0];
+
+    // 該当のカードのDOM要素を削除
+    const wrapper = document.getElementById(`buta-card-wrapper-${card.display}`);
+    if (wrapper) wrapper.remove();
+
+    let match = false;
+    let penaltyCards = 0;
+
+    // UI表示用状態の保存
+    if (butaCenterPile.length > 0) {
+        butaPreviousCenterCard = butaCenterPile[butaCenterPile.length - 1];
+    } else {
+        butaPreviousCenterCard = null;
+    }
+    butaLastDrawnCard = card;
+
+    // 前のカードとマーク（suit）が一致するか確認
+    if (butaPreviousCenterCard && butaPreviousCenterCard.suit === card.suit) {
+        match = true;
+    }
+    butaLastMatch = match;
+
+    if (match) {
+        penaltyCards = butaCenterPile.length + 1; // 場のカード + 今回引いたカード
+        if (butaCurrentPlayer === 1) {
+            butaP1Penalty += penaltyCards;
+        } else {
+            butaP2Penalty += penaltyCards;
+        }
+        butaCenterPile = []; // 場をクリア
+    } else {
+        butaCenterPile.push(card);
+    }
+
+    // 相手へ通知
+    if (butaCurrentPlayer === myPlayerNum) {
+        sendData({
+            type: 'buta-draw',
+            card: card,
+            match: match,
+            playerNum: butaCurrentPlayer
+        });
+    }
+
+    // UIとサウンドの更新
+    playClickSound();
+    if (match) {
+        playBuzzerSound();
+        butaMessageEl.textContent = `「${card.display}」！場のマークと一致したため、ペナルティ${penaltyCards}枚(^Д^)`;
+        butaMessageEl.classList.replace('text-white', 'text-yellow-300');
+    } else {
+        butaMessageEl.textContent = `「${card.display}」を引きました。`;
+        butaMessageEl.classList.replace('text-yellow-300', 'text-white');
+    }
+
+    // ターン交代
+    butaCurrentPlayer = (butaCurrentPlayer === 1) ? 2 : 1;
+
+    // 終了判定
+    if (butaDeck.length === 0) {
+        gameOver = true;
+        setTimeout(finishButaGame, 1500);
+    }
+
+    updateButaUI();
+}
+
+function updateButaUI() {
+    const myPenalty = myPlayerNum === 1 ? butaP1Penalty : butaP2Penalty;
+    const oppPenalty = myPlayerNum === 1 ? butaP2Penalty : butaP1Penalty;
+
+    document.getElementById('buta-my-penalty').textContent = myPenalty;
+    document.getElementById('buta-opponent-penalty').textContent = oppPenalty;
+    document.getElementById('buta-deck-count').textContent = butaDeck.length;
+
+    // 場の描画 (直前の場のカードを表示)
+    const centerEl = document.getElementById('buta-center-pile');
+    if (butaPreviousCenterCard) {
+        centerEl.className = `card ${butaPreviousCenterCard.color} flex justify-center items-center shadow-lg relative`;
+        centerEl.innerHTML = `<span class="z-0">${butaPreviousCenterCard.display}</span>`;
+    } else {
+        centerEl.className = 'card border-dashed border-2 border-gray-400 bg-transparent flex justify-center items-center shadow-inner relative';
+        centerEl.innerHTML = '<span class="text-gray-400 text-lg font-bold">空</span>';
+    }
+
+    // 引いたカードの描画
+    const drawnEl = document.getElementById('buta-drawn-card');
+    if (butaLastDrawnCard) {
+        drawnEl.className = `card ${butaLastDrawnCard.color} flex justify-center items-center shadow-lg relative`;
+        // ペナルティ時はブルブル震えるアニメーション
+        if (butaLastMatch) {
+            drawnEl.classList.add('animate-bounce');
+        } else {
+            drawnEl.classList.remove('animate-bounce');
+        }
+        drawnEl.innerHTML = `<span class="z-0">${butaLastDrawnCard.display}</span>`;
+    } else {
+        drawnEl.className = 'card border-dashed border-2 border-yellow-400 bg-transparent flex justify-center items-center shadow-inner';
+        drawnEl.classList.remove('animate-bounce');
+        drawnEl.innerHTML = '<span class="text-yellow-600 text-lg font-bold">？</span>';
+    }
+
+    // 現在の実際の場の枚数バッジ
+    const countBadge = document.getElementById('buta-center-count');
+    countBadge.classList.remove('hidden');
+    countBadge.textContent = `場のカード: ${butaCenterPile.length}枚`;
+
+    const isMyTurn = (!gameOver && butaCurrentPlayer === myPlayerNum);
+    if (!gameOver) {
+        printTurnStatus(isMyTurn);
+    } else {
+        statusMessage.textContent = "ゲーム終了！";
+        statusMessage.classList.remove('animate-pulse');
+    }
+
+    // 残っているカードすべてのカーソル状態を更新
+    butaDeck.forEach(card => {
+        const wrapper = document.getElementById(`buta-card-wrapper-${card.display}`);
+        if (wrapper) {
+            const cardEl = wrapper.firstChild;
+            cardEl.style.cursor = isMyTurn ? 'pointer' : 'not-allowed';
+        }
+    });
+}
+
+function finishButaGame() {
+    let myPenalty = myPlayerNum === 1 ? butaP1Penalty : butaP2Penalty;
+    let oppPenalty = myPlayerNum === 1 ? butaP2Penalty : butaP1Penalty;
+
+    // ペナルティが「少ない」ほうが勝ち
+    let isWinner = myPenalty <= oppPenalty;
+
+    showRematchPrompt(isWinner);
+}
+
+
 // --- DOM初期化 ---
 function initializeDOMElements() {
     // 共通
@@ -4059,11 +4422,20 @@ function initializeDOMElements() {
     gameChoiceModalButtons = document.getElementById('game-choice-modal-buttons');
     gameChoiceBabanukiBtn = document.getElementById('game-choice-babanuki');
     gameChoiceQuoridorBtn = document.getElementById('game-choice-quoridor');
+    gameChoiceOthelloBtn = document.getElementById('game-choice-othello');
+    gameChoiceButaBtn = document.getElementById('game-choice-buta');
     gameChoiceCancelBtn = document.getElementById('game-choice-cancel');
 
     // ゲームUIコンテナ
     babanukiUI = document.getElementById('babanuki-ui');
     quoridorUI = document.getElementById('quoridor-ui');
+    othelloUI = document.getElementById('othello-ui');
+    butaUI = document.getElementById('buta-ui');
+
+    // ぶたのしっぽ用
+    butaMyNameEl = document.getElementById('buta-my-name');
+    butaOpponentNameEl = document.getElementById('buta-opponent-name');
+    butaMessageEl = document.getElementById('buta-message');
 
     // ババ抜き用
     myNameEl = document.getElementById('my-name');
@@ -4090,8 +4462,6 @@ function initializeDOMElements() {
     }
 
     // オセロ用DOM
-    gameChoiceOthelloBtn = document.getElementById('game-choice-othello');
-    othelloUI = document.getElementById('othello-ui');
     oPlayer1Name = document.getElementById('o-player1-name');
     oPlayer2Name = document.getElementById('o-player2-name');
     oP1Score = document.getElementById('o-p1-score');

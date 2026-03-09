@@ -601,7 +601,7 @@
                 </div>
             </div>
         </div>
-        <div class="text-white">
+        <div class="border-t border-gray-300 mt-4 pt-4 text-white">
             <h2 class="underline cursor-pointer"
                 onclick="document.getElementById('omanko-rule').classList.toggle('hidden');">
                 おまこんリバーシのルール説明 ▼</h2>
@@ -614,6 +614,8 @@
                 <p>おまん駒は、通常の駒と同様に自分の色の駒で挟むと自分の駒になります。</p>
                 <p>6x6盤リバーシの性質上、先手が有利になるため、ゲームバランスを考慮して、先手が使えるおまん駒の数は3つ、後手は5つにしています。</p>
             </div>
+        </div>
+        <div class="mt-4 pt-4 text-white">
             <h2 class="underline cursor-pointer"
                 onclick="document.getElementById('quoridor-rule').classList.toggle('hidden');">
                 コリドールのルール説明 ▼</h2>
@@ -640,6 +642,19 @@
                 <p>壁で相手を妨害するのはOKだけど、相手が絶対にゴールできなくなるような「閉じ込め」行為は禁止です。必ずどこか1ヶ所はゴールへの道を残さなくてはいけません。</p>
             </div>
         </div>
+        <div class="mt-4 pt-4 text-white">
+            <h2 class="underline cursor-pointer"
+                onclick="document.getElementById('buta-rule').classList.toggle('hidden');">
+                ぶたのしっぽのルール説明 ▼</h2>
+            <div id="buta-rule" class="hidden">
+                <h3 class="py-4 text-xl font-bold text-yellow-400">ルール</h3>
+                <p>ぶたのしっぽ状に並べられた山札から好きなカードを交互に1枚ずつ引き、場に出していくゲームです。</p>
+                <p>引いたカードのマーク（ハート❤️、ダイヤ♦️、スペード♠️、クラブ♣️）が、直前に場に出されたカードのマークと<b>同じだった場合</b>、ペナルティとして場にあるすべてのカードを引き取ります。</p>
+                <p>山札のカードがすべて無くなった時点でゲーム終了となり、ペナルティとして引き取ったカードの枚数が<b>少ない方</b>の勝ちとなります。</p>
+                <p>ジョーカーは使用せず、52枚のカードでプレイします。</p>
+            </div>
+        </div>
+    </div>
     </div>
     </div>
 </body>

@@ -158,10 +158,11 @@
                 待合室に入る
             </button>
             <div class="border-t border-gray-300 py-2 my-3">
-                <h2 class="text-white">このサイトについて</h2>
+                <h2 class="my-1 py-1 text-white">このサイトについて</h2>
                 <p class="text-white">内緒の秘密のP2P通信でババ抜きやリバーシなどでババ活できるサイトです。</p>
-                <hr>
-                <h2 class="text-white">お知らせ</h2>
+            </div>
+            <div class="border-t border-gray-300 py-2 my-3">
+                <h2 class="my-1 py-1 text-white">お知らせ</h2>
                 <ul>
                     <li class="text-white">2026/3/9: ぶたのしっぽを追加しましたヽ(´ ー｀)ノ</li>
                     <li class="text-white">2026/3/6: おまこんリバーシのプレイ時間を短くして気軽に遊べるようにルールを変更しましたヽ(´ ー｀)ノ</li>
@@ -557,104 +558,109 @@
                 <div id="effect-animation-field"
                     class="hidden fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 font-extrabold z-100 whitespace-nowrap">
                 </div>
+
             </div>
         </div>
+        <!-- ルール説明 -->
+        <div class="border-t border-gray-300 mt-2 pt-2 text-white">
+            <h2>ルール説明</h2>
+            <div class="mt-2 pt-2 text-white">
+                <h3 class="underline cursor-pointer"
+                    onclick="document.getElementById('omanko-rule').classList.toggle('hidden');">
+                    おまこんリバーシのルール ▼</h3>
+                <div id="omanko-rule" class="hidden">
+                    <h3 class="py-4 text-xl font-bold text-yellow-400">ルール</h3>
+                    <p>6x6盤のリバーシ (オセロ) におまん駒が追加されたゲームです。</p>
+                    <p>おまん駒は、通常の駒の5倍の価値があり、対戦終了後に盤面のおまん駒1つあたりスコアに5点計上されます。</p>
+                    <p>各プレイヤーはおまん駒を5つ持っていて、好きなタイミングで使うことができます。</p>
+                    <p>盤面に置かれていないおまん駒は、スコアに計上されません。</p>
+                    <p>おまん駒は、通常の駒と同様に自分の色の駒で挟むと自分の駒になります。</p>
+                    <p>6x6盤リバーシの性質上、先手が有利になるため、ゲームバランスを考慮して、先手が使えるおまん駒の数は3つ、後手は5つにしています。</p>
+                </div>
+            </div>
+            <div class="mt-2 pt-2 text-white">
+                <h3 class="underline cursor-pointer"
+                    onclick="document.getElementById('quoridor-rule').classList.toggle('hidden');">
+                    コリドールのルール ▼</h3>
+                <div id="quoridor-rule" class="hidden">
+                    <h3 class="py-4 text-xl font-bold text-yellow-400">ゲームの目的</h3>
+                    <p>駒を動かして、スタート地点から反対側のゴールライン (正反対の列) に到達させると勝ちになるボードゲームです。</p>
+                    <p>相手の進路を邪魔する壁をどのように設置するかが勝敗の鍵となります。</p>
 
-        <!-- モーダル (ダイアログ) -->
-        <div id="modal-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center p-2">
-            <div id="modal-content" class="bg-white rounded-lg shadow-2xl md:p-6 p-2 md:max-w-md max-w-sm w-full">
-                <h3 id="modal-title" class="md:text-2xl text-lg text-black font-bold mb-4"></h3>
-                <p id="modal-body" class="text-gray-700 mb-6 md:text-base text-sm"></p>
-                <div id="modal-buttons" class="flex justify-center space-x-3">
-                    <!-- ボタンがここに入る -->
+                    <h4 class="py-4 text-xl font-bold text-yellow-400"> 自分のターン中にできること</h4>
+                    <p>自分の番が来たら、駒を動かすか壁を設置することができます。</p>
+                    <h5 class="py-2 pl-5 text-white underline">駒を動かす</h5>
+                    <ul class="list-disc list-inside">
+                        <li>前後左右のどれかに1マスだけ進めます（斜め方向はダメ）。</li>
+                        <li>相手の駒と隣り合った場合には、ジャンプして相手を飛び越えて2マス進むことができます。</li>
+                    </ul>
+                    <h5 class="py-2 pl-5 text-white underline">壁を設置</h5>
+                    <ul class="list-disc list-inside">
+                        <li>相手の進路を邪魔をするために、マスとマスの間に「壁」を1枚設置できます。</li>
+                        <li>壁は一度置いたら動かせません。</li>
+                        <li>壁は横向きや縦向きに設置できます。</li>
+                        <li>壁は10枚までしか設置できません。</li>
+                    </ul>
+                    <h4 class="py-4 text-xl font-bold text-yellow-400">一番大事なルール</h4>
+                    <p>壁で相手を妨害するのはOKだけど、相手が絶対にゴールできなくなるような「閉じ込め」行為は禁止です。必ずどこか1ヶ所はゴールへの道を残さなくてはいけません。</p>
+                </div>
+            </div>
+            <div class="mt-2 pt-2 text-white">
+                <h3 class="underline cursor-pointer"
+                    onclick="document.getElementById('buta-rule').classList.toggle('hidden');">
+                    ぶたのしっぽのルール ▼</h3>
+                <div id="buta-rule" class="hidden">
+                    <h3 class="py-4 text-xl font-bold text-yellow-400">ルール</h3>
+                    <p>ぶたのしっぽ状に並べられた山札から好きなカードを交互に1枚ずつ引き、場に出していくゲームです。</p>
+                    <p>引いたカードのマーク（ハート❤️、ダイヤ♦️、スペード♠️、クラブ♣️）が、直前に場に出されたカードのマークと<b>同じだった場合</b>、ペナルティとして場にあるすべてのカードを引き取ります。
+                    </p>
+                    <p>山札のカードがすべて無くなった時点でゲーム終了となり、ペナルティとして引き取ったカードの枚数が<b>少ない方</b>の勝ちとなります。</p>
+                    <p>ジョーカーは使用せず、52枚のカードでプレイします。</p>
+                </div>
+            </div>
+
+            <!-- モーダル (ダイアログ) -->
+            <div id="modal-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center p-2">
+                <div id="modal-content" class="bg-white rounded-lg shadow-2xl md:p-6 p-2 md:max-w-md max-w-sm w-full">
+                    <h3 id="modal-title" class="md:text-2xl text-lg text-black font-bold mb-4"></h3>
+                    <p id="modal-body" class="text-gray-700 mb-6 md:text-base text-sm"></p>
+                    <div id="modal-buttons" class="flex justify-center space-x-3">
+                        <!-- ボタンがここに入る -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- ゲーム選択モーダル -->
+            <div id="game-choice-modal-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center p-2">
+                <div id="game-choice-modal-content" class="bg-white rounded-lg shadow-2xl p-6 max-w-sm w-full">
+                    <h3 id="game-choice-modal-title" class="text-2xl text-black font-bold mb-4">ゲーム選択</h3>
+                    <p id="game-choice-modal-body" class="text-gray-700 mb-6">どのゲームに招待しますか？</p>
+                    <div id="game-choice-modal-buttons" class="flex flex-col space-y-3">
+                        <button id="game-choice-babanuki"
+                            class="bg-blue-600 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-blue-700 transition duration-300">
+                            ババ抜き
+                        </button>
+                        <button id="game-choice-buta"
+                            class="bg-pink-600 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-pink-700 transition duration-300">
+                            ぶたのしっぽ
+                        </button>
+                        <button id="game-choice-othello"
+                            class="bg-green-600 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-green-700 transition duration-300">
+                            おまこんリバーシ (オセロ)
+                        </button>
+                        <button id="game-choice-quoridor"
+                            class="bg-violet-600 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-violet-700 transition duration-300">
+                            コリドール
+                        </button>
+                        <hr>
+                        <button id="game-choice-cancel"
+                            class="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-gray-600 transition duration-300">
+                            キャンセル
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
-
-        <!-- ゲーム選択モーダル -->
-        <div id="game-choice-modal-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center p-2">
-            <div id="game-choice-modal-content" class="bg-white rounded-lg shadow-2xl p-6 max-w-sm w-full">
-                <h3 id="game-choice-modal-title" class="text-2xl text-black font-bold mb-4">ゲーム選択</h3>
-                <p id="game-choice-modal-body" class="text-gray-700 mb-6">どのゲームに招待しますか？</p>
-                <div id="game-choice-modal-buttons" class="flex flex-col space-y-3">
-                    <button id="game-choice-babanuki"
-                        class="bg-blue-600 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-blue-700 transition duration-300">
-                        ババ抜き
-                    </button>
-                    <button id="game-choice-buta"
-                        class="bg-pink-600 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-pink-700 transition duration-300">
-                        ぶたのしっぽ
-                    </button>
-                    <button id="game-choice-othello"
-                        class="bg-green-600 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-green-700 transition duration-300">
-                        おまこんリバーシ (オセロ)
-                    </button>
-                    <button id="game-choice-quoridor"
-                        class="bg-violet-600 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-violet-700 transition duration-300">
-                        コリドール
-                    </button>
-                    <hr>
-                    <button id="game-choice-cancel"
-                        class="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-gray-600 transition duration-300">
-                        キャンセル
-                    </button>
-                </div>
-            </div>
-        </div>
-        <div class="border-t border-gray-300 mt-4 pt-4 text-white">
-            <h2 class="underline cursor-pointer"
-                onclick="document.getElementById('omanko-rule').classList.toggle('hidden');">
-                おまこんリバーシのルール説明 ▼</h2>
-            <div id="omanko-rule" class="hidden">
-                <h3 class="py-4 text-xl font-bold text-yellow-400">ルール</h3>
-                <p>6x6盤のリバーシ (オセロ) におまん駒が追加されたゲームです。</p>
-                <p>おまん駒は、通常の駒の5倍の価値があり、対戦終了後に盤面のおまん駒1つあたりスコアに5点計上されます。</p>
-                <p>各プレイヤーはおまん駒を5つ持っていて、好きなタイミングで使うことができます。</p>
-                <p>盤面に置かれていないおまん駒は、スコアに計上されません。</p>
-                <p>おまん駒は、通常の駒と同様に自分の色の駒で挟むと自分の駒になります。</p>
-                <p>6x6盤リバーシの性質上、先手が有利になるため、ゲームバランスを考慮して、先手が使えるおまん駒の数は3つ、後手は5つにしています。</p>
-            </div>
-        </div>
-        <div class="mt-4 pt-4 text-white">
-            <h2 class="underline cursor-pointer"
-                onclick="document.getElementById('quoridor-rule').classList.toggle('hidden');">
-                コリドールのルール説明 ▼</h2>
-            <div id="quoridor-rule" class="hidden">
-                <h3 class="py-4 text-xl font-bold text-yellow-400">ゲームの目的</h3>
-                <p>駒を動かして、スタート地点から反対側のゴールライン (正反対の列) に到達させると勝ちになるボードゲームです。</p>
-                <p>相手の進路を邪魔する壁をどのように設置するかが勝敗の鍵となります。</p>
-
-                <h3 class="py-4 text-xl font-bold text-yellow-400"> 自分のターン中にできること</h3>
-                <p>自分の番が来たら、駒を動かすか壁を設置することができます。</p>
-                <h4 class="py-2 pl-5 text-white underline">駒を動かす</h4>
-                <ul class="list-disc list-inside">
-                    <li>前後左右のどれかに1マスだけ進めます（斜め方向はダメ）。</li>
-                    <li>相手の駒と隣り合った場合には、ジャンプして相手を飛び越えて2マス進むことができます。</li>
-                </ul>
-                <h4 class="py-2 pl-5 text-white underline">壁を設置</h4>
-                <ul class="list-disc list-inside">
-                    <li>相手の進路を邪魔をするために、マスとマスの間に「壁」を1枚設置できます。</li>
-                    <li>壁は一度置いたら動かせません。</li>
-                    <li>壁は横向きや縦向きに設置できます。</li>
-                    <li>壁は10枚までしか設置できません。</li>
-                </ul>
-                <h3 class="py-4 text-xl font-bold text-yellow-400">一番大事なルール</h3>
-                <p>壁で相手を妨害するのはOKだけど、相手が絶対にゴールできなくなるような「閉じ込め」行為は禁止です。必ずどこか1ヶ所はゴールへの道を残さなくてはいけません。</p>
-            </div>
-        </div>
-        <div class="mt-4 pt-4 text-white">
-            <h2 class="underline cursor-pointer"
-                onclick="document.getElementById('buta-rule').classList.toggle('hidden');">
-                ぶたのしっぽのルール説明 ▼</h2>
-            <div id="buta-rule" class="hidden">
-                <h3 class="py-4 text-xl font-bold text-yellow-400">ルール</h3>
-                <p>ぶたのしっぽ状に並べられた山札から好きなカードを交互に1枚ずつ引き、場に出していくゲームです。</p>
-                <p>引いたカードのマーク（ハート❤️、ダイヤ♦️、スペード♠️、クラブ♣️）が、直前に場に出されたカードのマークと<b>同じだった場合</b>、ペナルティとして場にあるすべてのカードを引き取ります。</p>
-                <p>山札のカードがすべて無くなった時点でゲーム終了となり、ペナルティとして引き取ったカードの枚数が<b>少ない方</b>の勝ちとなります。</p>
-                <p>ジョーカーは使用せず、52枚のカードでプレイします。</p>
-            </div>
-        </div>
-    </div>
     </div>
     </div>
 </body>

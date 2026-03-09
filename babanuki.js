@@ -10,6 +10,11 @@ let opponentUserId = '';
 let opponentName = '';
 let isHost = false; // 招待した側 (ゲームのホスト)
 let userStatus = 'init';  // {init | free | busy | gaming}
+let isSpectator = false; // 観戦者フラグ
+let spectatorChannel = null; // 観戦機能用状態同期チャンネル
+let spectatorHostName = '';    // 観戦する対戦部屋のホストの名前を保持
+let spectatorGuestName = '';   // 観戦する対戦部屋のゲストの名前を保持
+let spectatorResultShown = false; // 追加: 結果表示済みフラグ
 const SYSTEM_USER_NAME = '通知';
 const SYSTEM_USER_ID = 'system';
 
@@ -746,11 +751,15 @@ function checkUserName() {
  */
 function updateMyPresence() {
     if (lobbyChannel && lobbyChannel.state === 'joined') {
-        // 常に完全な状態を送信する
         lobbyChannel.track({
             name: myName,
             user_id: userId,
             user_status: userStatus,
+            room_id: roomId,             // ルームIDを共有
+            is_host: isHost,             // ホストかどうか
+            game_type: currentGameType,  // プレイ中のゲーム種別
+            opponent_name: opponentName,  // 対戦相手の名前
+            is_spectator: isSpectator  // 観戦者かどうか
         });
     }
 }
@@ -997,9 +1006,10 @@ async function initLobby(myName) {
     // Presenceイベントの購読
     lobbyChannel.on('presence', { event: 'sync' }, () => {
         const newState = lobbyChannel.presenceState();
-        showActiveLobbyUsersInGame(newState)  // 対戦中画面
-        renderLobby(newState);  // ロビー画面
-        notifyPlayerChanges(newState);
+        showActiveLobbyUsersInGame(newState);  // 対戦中画面 
+        showSpectatorsInGame(newState);        // 観戦者リストを更新
+        renderLobby(newState);                 // ロビー画面 
+        notifyPlayerChanges(newState);         // 挨拶など
     });
     // 誰かが参加した時
     lobbyChannel.on('presence', { event: 'join' }, ({ key, newPresences }) => {
@@ -1107,17 +1117,31 @@ function renderLobby(presenceState) {
             let button;
 
             if (presence.user_status === 'gaming') {
-                // 対戦中の場合
-                button = document.createElement('button');
-                button.textContent = `対戦中`;
-                button.className = 'bg-gray-400 text-white font-bold md:text-base text-xs py-1 md:px-4 px-2 rounded-md shadow transition duration-300';
-                button.disabled = "disabled";
+                if (presence.is_spectator) {
+                    // 観戦中の場合 (クリックで果たし状を送れる)
+                    button = document.createElement('button');
+                    button.textContent = '観戦中の奴に果たし状';
+                    button.className = 'bg-green-600 text-white font-bold md:text-base text-xs py-1 md:px-4 px-2 rounded-md shadow hover:bg-green-700 transition duration-300';
+                    button.onclick = () => showGameChoiceModal(presence.user_id, presence.name);
+                } else if (presence.is_host && presence.room_id) {
+                    // 対戦中かつホストの場合「観戦する」ボタンを表示
+                    button = document.createElement('button');
+                    button.textContent = `観戦する`;
+                    button.className = 'bg-blue-600 text-white font-bold md:text-base text-xs py-1 md:px-4 px-2 rounded-md shadow hover:bg-blue-700 transition duration-300';
+                    button.onclick = () => spectateGame(presence.room_id, presence.game_type, presence.name, presence.opponent_name);
+                } else {
+                    // ゲスト側または古いデータの場合は対戦中表示のみ
+                    button = document.createElement('button');
+                    button.textContent = `対戦中`;
+                    button.className = 'bg-gray-400 text-white font-bold md:text-base text-xs py-1 md:px-4 px-2 rounded-md shadow transition duration-300';
+                    button.disabled = "disabled";
+                }
             } else {
-                // 対戦可能の場合
+                // 対戦可能な場合
                 button = document.createElement('button');
                 button.textContent = '果たし状';
                 button.className = 'bg-green-600 text-white font-bold md:text-base text-xs py-1 md:px-4 px-2 rounded-md shadow hover:bg-green-700 transition duration-300';
-                button.onclick = () => showGameChoiceModal(presence.user_id, presence.name); // ゲーム選択モーダルを表示
+                button.onclick = () => showGameChoiceModal(presence.user_id, presence.name);
             }
 
             playerEl.appendChild(playerNameContainer);
@@ -1236,14 +1260,16 @@ function sendSignal(payload) {
 function exitToLobby() {
     hideModal();
 
-    // 勝敗結果がまだ送信されていない場合（＝途中終了）に無効試合を通知
-    if (!gameResultSent && opponentName) { // opponentName がいる＝対戦中だった
-        sendLobbyNotification(`${myName} と ${opponentName} の対戦は無効試合となりました`);
-    }
+    if (!isSpectator) {
+        // 勝敗結果がまだ送信されていない場合（＝途中終了）に無効試合を通知
+        if (!gameResultSent && opponentName) { // opponentName がいる＝対戦中だった
+            sendLobbyNotification(`${myName} と ${opponentName} の対戦は無効試合となりました`);
+        }
 
-    // 相手に切断を通知 (相手がまだ接続している場合に備える)
-    if (opponentUserId) {
-        sendSignal({ type: 'hangup', targetUserId: opponentUserId });
+        // 相手に切断を通知 (相手がまだ接続している場合に備える)
+        if (opponentUserId) {
+            sendSignal({ type: 'hangup', targetUserId: opponentUserId });
+        }
     }
 
     if (userStatus !== 'free') {
@@ -1253,6 +1279,299 @@ function exitToLobby() {
 
     // 接続をクリーンアップ
     cleanupConnection(true); // ロビーに戻る
+}
+
+// --- 観戦機能用関数群 ---
+
+async function spectateGame(targetRoomId, gameType, hostName, guestName) {
+    isSpectator = true;
+    roomId = targetRoomId;
+    currentGameType = gameType;
+    opponentName = hostName; // UI表示用にセット
+
+    // 観戦者用の変数に名前を保存し、フラグを初期化
+    spectatorHostName = hostName;
+    spectatorGuestName = guestName;
+    spectatorResultShown = false;
+
+    if (userStatus !== 'gaming') {
+        userStatus = 'gaming';
+        updateMyPresence();
+    }
+
+    // チャットと観戦チャンネルのセットアップ
+    await setupGameChat(roomId);
+    setupSpectatorChannel(roomId);
+
+    showScreen('game');
+    setupGameUI();
+
+    // 観戦者用のUI（名前表示やボタン非表示）に切り替え
+    adjustUIForSpectator(hostName, guestName);
+
+    // ホストに現在の盤面状態をリクエスト
+    if (spectatorChannel) {
+        spectatorChannel.send({
+            type: 'broadcast',
+            event: 'request-state',
+            payload: { senderId: userId }
+        });
+    }
+}
+
+function adjustUIForSpectator(hostName, guestName) {
+    document.getElementById('leave-game-btn').textContent = "観戦終了";
+
+    // ファイル送信機能はWebRTC専用なので観戦者には隠す
+    const fileContainer = document.getElementById('file-transfer-container');
+    if (fileContainer) fileContainer.classList.add('hidden');
+
+    if (currentGameType === 'quoridor') {
+        qPlayer1Name.textContent = `青: ${hostName}`;
+        qPlayer2Name.textContent = `赤: ${guestName}`;
+        qMoveBtn.classList.add('hidden');
+        qHWallBtn.classList.add('hidden');
+        qVWallBtn.classList.add('hidden');
+    } else if (currentGameType === 'othello') {
+        oPlayer1Name.textContent = `黒: ${hostName}`;
+        oPlayer2Name.textContent = `白: ${guestName}`;
+        oToggleSpBtn.classList.add('hidden');
+    } else if (currentGameType === 'buta') {
+        butaMyNameEl.innerText = `${hostName}`;
+        butaOpponentNameEl.innerText = `${guestName}`;
+    } else if (currentGameType === 'babanuki') {
+        myNameEl.innerText = `${hostName}`;
+        opponentNameEl.innerText = `${guestName}`;
+    }
+}
+
+function setupSpectatorChannel(room_id) {
+    if (spectatorChannel) {
+        spectatorChannel.unsubscribe();
+    }
+    spectatorChannel = supabaseClient.channel(`spectate-${room_id}`);
+
+    // ホスト側：観戦者からの状態要求を受け取る
+    spectatorChannel.on('broadcast', { event: 'request-state' }, () => {
+        if (isHost) broadcastGameState();
+    });
+
+    // 観戦者側：ホストからの状態更新を受け取る
+    spectatorChannel.on('broadcast', { event: 'state-update' }, ({ payload }) => {
+        if (isSpectator) applyGameStateFromHost(payload);
+    });
+
+    spectatorChannel.subscribe();
+}
+
+function broadcastGameState() {
+    if (!isHost || !spectatorChannel) return;
+
+    let state = { gameType: currentGameType };
+
+    if (currentGameType === 'quoridor') {
+        state.player1Pos = player1Pos;
+        state.player2Pos = player2Pos;
+        state.player1Walls = player1Walls;
+        state.player2Walls = player2Walls;
+        state.horizontalWalls = horizontalWalls;
+        state.verticalWalls = verticalWalls;
+        state.q_currentPlayer = q_currentPlayer;
+        state.gameOver = gameOver;
+    } else if (currentGameType === 'othello') {
+        state.othelloBoard = othelloBoard;
+        state.o_currentPlayer = o_currentPlayer;
+        state.p1SpStones = p1SpStones;
+        state.p2SpStones = p2SpStones;
+        state.gameOver = gameOver;
+    } else if (currentGameType === 'buta') {
+        state.butaDeck = butaDeck;
+        state.butaCenterPile = butaCenterPile;
+        state.butaP1Penalty = butaP1Penalty;
+        state.butaP2Penalty = butaP2Penalty;
+        state.butaCurrentPlayer = butaCurrentPlayer;
+        state.butaLastDrawnCard = butaLastDrawnCard;
+        state.butaPreviousCenterCard = butaPreviousCenterCard;
+        state.gameOver = gameOver;
+        state.butaMessage = butaMessageEl.innerHTML;
+    } else if (currentGameType === 'babanuki') {
+        state.myHand = myHand;
+        state.opponentHandSize = opponentHandSize;
+        state.myTurn = myTurn;
+        state.babanukiMessage = drawnCardMessageEl.innerHTML;
+        state.gameOver = gameOver;
+    }
+
+    spectatorChannel.send({ type: 'broadcast', event: 'state-update', payload: state });
+}
+
+function applyGameStateFromHost(state) {
+    // 新しいゲーム(再戦など)が始まったら、結果表示済みフラグをリセットする
+    if (state.gameOver === false) {
+        spectatorResultShown = false;
+    }
+
+    if (state.gameType === 'quoridor') {
+        player1Pos = state.player1Pos;
+        player2Pos = state.player2Pos;
+        player1Walls = state.player1Walls;
+        player2Walls = state.player2Walls;
+        horizontalWalls = state.horizontalWalls;
+        verticalWalls = state.verticalWalls;
+        q_currentPlayer = state.q_currentPlayer;
+        gameOver = state.gameOver;
+        updateQuoridorUI();
+        drawQuoridorGame();
+    } else if (state.gameType === 'othello') {
+        othelloBoard = state.othelloBoard;
+        o_currentPlayer = state.o_currentPlayer;
+        p1SpStones = state.p1SpStones;
+        p2SpStones = state.p2SpStones;
+        gameOver = state.gameOver;
+        updateOthelloUI();
+        drawOthelloGame();
+    } else if (state.gameType === 'buta') {
+        if (butaDeck.length !== state.butaDeck.length) {
+            butaDeck = state.butaDeck;
+            setupButaCircle(butaDeck);
+        }
+        butaCenterPile = state.butaCenterPile;
+        butaP1Penalty = state.butaP1Penalty;
+        butaP2Penalty = state.butaP2Penalty;
+        butaCurrentPlayer = state.butaCurrentPlayer;
+        butaLastDrawnCard = state.butaLastDrawnCard;
+        butaPreviousCenterCard = state.butaPreviousCenterCard;
+        gameOver = state.gameOver;
+        butaMessageEl.innerHTML = formatMessageForSpectator(state.butaMessage || '');
+        updateButaUI();
+    } else if (state.gameType === 'babanuki') {
+        myHand = state.myHand;
+        opponentHandSize = state.opponentHandSize;
+        myTurn = state.myTurn;
+        drawnCardMessageEl.innerHTML = formatMessageForSpectator(state.babanukiMessage || '');
+        renderMyHand();
+        renderOpponentHand();
+        printTurnStatus(myTurn);
+    }
+
+    // 最後に勝敗判定と結果モーダルの表示チェックを行う
+    checkAndShowSpectatorResult(state);
+}
+
+/**
+ * 観戦者向けにゲーム終了を判定してモーダルを表示する
+ */
+function checkAndShowSpectatorResult(state) {
+    if (!isSpectator || spectatorResultShown) return;
+
+    let isGameOver = false;
+    let resultMessage = "";
+
+    if (state.gameType === 'quoridor' && state.gameOver) {
+        isGameOver = true;
+        let winner = state.q_currentPlayer === 1 ? spectatorHostName : spectatorGuestName;
+        resultMessage = `${winner} がコリドールで大勝利！`;
+
+    } else if (state.gameType === 'othello' && state.gameOver) {
+        isGameOver = true;
+        if (state.o_currentPlayer === 1) {
+            resultMessage = `${spectatorHostName} がおまこんリバーシで大勝利！`;
+        } else if (state.o_currentPlayer === 2) {
+            resultMessage = `${spectatorGuestName} がおまこんリバーシで大勝利！`;
+        } else {
+            resultMessage = `おまこんリバーシは引き分けでした！`;
+        }
+
+    } else if (state.gameType === 'buta' && state.gameOver) {
+        isGameOver = true;
+        if (state.butaP1Penalty < state.butaP2Penalty) {
+            resultMessage = `${spectatorHostName} がぶたのしっぽで大勝利！`;
+        } else if (state.butaP2Penalty < state.butaP1Penalty) {
+            resultMessage = `${spectatorGuestName} がぶたのしっぽで大勝利！`;
+        } else {
+            resultMessage = `ぶたのしっぽは引き分けでした！`;
+        }
+
+    } else if (state.gameType === 'babanuki' && state.gameOver) {
+        isGameOver = true;
+        if (state.myHand && state.myHand.length === 0) {
+            isGameOver = true;
+            resultMessage = `${spectatorHostName} がババ抜きで大勝利！`;
+        } else if (state.opponentHandSize === 0) {
+            isGameOver = true;
+            resultMessage = `${spectatorGuestName} がババ抜きで大勝利！`;
+        }
+    }
+
+    // ゲームが終わっていたらモーダルを表示
+    if (isGameOver) {
+        spectatorResultShown = true;
+        playDealSound(); // チャイム代わりに音を鳴らす
+
+        showModal('観戦したゲームが終了しました', resultMessage, [
+            { text: '盤面を見る', class: 'bg-gray-500', action: hideModal },
+            { text: 'ロビーに戻る', class: 'bg-green-600', action: exitToLobby }
+        ]);
+    }
+}
+
+/**
+ * ホスト視点のメッセージを観戦者視点（プレイヤー名）に置換する
+ */
+function formatMessageForSpectator(messageHtml) {
+    if (!messageHtml) return '';
+    // 「敵」をゲストの名前に、「貴殿」「自分」をホストの名前に置換
+    return messageHtml
+        .replace(/敵/g, spectatorGuestName)
+        .replace(/貴殿/g, spectatorHostName)
+        .replace(/自分/g, spectatorHostName);
+}
+
+/**
+ * 現在のルームを観戦しているユーザーのリストを描画する
+ * @param {Object} presenceState - SupabaseのPresenceステート
+ */
+function showSpectatorsInGame(presenceState) {
+    const spectatorBlock = document.getElementById('active-spectators');
+    if (!spectatorBlock) return;
+
+    // 自分がゲーム画面にいない場合、またはroomIdがない場合は枠ごと非表示
+    if (userStatus !== 'gaming' || !roomId) {
+        spectatorBlock.classList.add('hidden');
+        return;
+    }
+
+    let spectators = [];
+    for (const key in presenceState) {
+        const presences = presenceState[key];
+        if (presences.length > 0) {
+            const p = presences[0];
+            // 今いるルームの観戦者だけを抽出
+            if (p.room_id === roomId && p.is_spectator) {
+                if (p.user_id === userId) {
+                    spectators.push(`${p.name} (貴殿)`); // 自分自身
+                } else {
+                    spectators.push(p.name);
+                }
+            }
+        }
+    }
+
+    // 枠を表示する
+    spectatorBlock.classList.remove('hidden');
+
+    const listEl = document.getElementById('spectator-list');
+    const countEl = document.getElementById('spectator-count');
+
+    listEl.innerHTML = '';
+    spectators.forEach(name => {
+        const li = document.createElement('li');
+        li.className = "inline-block text-white font-semibold m-1 mr-3 bg-gray-800 px-2 py-1 rounded shadow-sm";
+        li.innerText = escapeChar(name);
+        listEl.appendChild(li);
+    });
+
+    countEl.textContent = `人数: ${spectators.length}名`;
 }
 
 // 6.1 招待 (ホスト -> ゲスト)
@@ -1325,8 +1644,8 @@ function cancelInvite() {
 
 // 6.2 招待受信 (ゲスト)
 function handleInvite(payload) {
-    // ゲーム中や招待中は無視
-    if (peerConnection || !userStatus === 'free') {
+    // 対戦中（自身がプレイヤー）や招待進行中の場合は無視（観戦中はOKとする）
+    if (peerConnection || (userStatus !== 'free' && !isSpectator)) {
         sendSignal({
             type: 'reject',
             targetUserId: payload.senderUserId, // ホスト宛て
@@ -1434,6 +1753,16 @@ function handleInviteCancel(payload) {
 // 6.5 招待承認 (ゲスト -> ホスト)
 function acceptInvite() {
     hideModal();
+
+    // 観戦中に招待を受けた場合、観戦を終了する
+    if (isSpectator) {
+        if (spectatorChannel) {
+            spectatorChannel.unsubscribe();
+            spectatorChannel = null;
+        }
+        isSpectator = false;
+    }
+
     setupPeerConnection(); // ゲスト側
 
     sendSignal({
@@ -1551,6 +1880,11 @@ function handleIceCandidate(payload) {
 
 // 6.11 ゲーム終了・切断 (どちらか)
 function leaveGame() {
+    if (isSpectator) {
+        exitToLobby(); // 観戦者は確認なしで即退出
+        return;
+    }
+
     // キュー破棄の確認
     showModal('確認', '本当にゲームを終了しますか？', [
         { text: 'キャンセル', class: 'bg-gray-500', action: hideModal },
@@ -1895,6 +2229,12 @@ function cleanupConnection(shouldShowLobby = true) {
         peerConnection = null;
     }
 
+    isSpectator = false; // 観戦機能のリセット
+    if (spectatorChannel) {
+        spectatorChannel.unsubscribe();
+        spectatorChannel = null;
+    }
+
     resetGameVariables();
     hideModal();
 
@@ -1915,7 +2255,13 @@ function cleanupConnection(shouldShowLobby = true) {
     if (othelloUI) othelloUI.classList.add('hidden');
     if (butaUI) butaUI.classList.add('hidden');
 
+    drawnCardMessageEl.textContent = ''; // ババ抜きの引いたカードメッセージをクリア
+    butaMessageEl.textContent = ''; // ぶたのしっぽのメッセージをクリア
+
     // ファイルUIをリセット
+    const fileContainer = document.getElementById('file-transfer-container');
+    if (fileContainer) fileContainer.classList.remove('hidden'); // 隠した枠を元に戻す
+
     if (fileInputEl) fileInputEl.disabled = true;
     if (fileSendBtnEl) fileSendBtnEl.disabled = true;
     if (fileStatusEl) fileStatusEl.textContent = '';
@@ -1967,15 +2313,15 @@ function resetGameVariables() {
 
 // ホストがroomIdを生成し、相手に送信する
 async function createRoomAndShare() {
-    roomId = crypto.randomUUID(); // 一意なルームID生成
+    roomId = crypto.randomUUID();
 
-    // 相手（ゲスト）にシグナリングを通じてroomIdを送る
+    setupSpectatorChannel(roomId); // ホストも観戦用チャンネルを作成
+
     if (dataChannel && dataChannel.readyState === 'open') {
-        sendData({
-            type: 'roomId',
-            roomId: roomId, // 対戦部屋チャットID
-        }, false); // gameTypeを付与しない共通メッセージ
+        sendData({ type: 'roomId', roomId: roomId }, false);
     }
+
+    updateMyPresence(); // ルームID決定後にPresenceを更新して観戦ボタンを出させる
 }
 
 // 対戦部屋チャット初期化
@@ -2047,12 +2393,14 @@ function sendGameChatMessage(msg = null) {
     const ts = Date.now();
     const msgId = djb2Hash(userId + msg)
 
-    appendGameChatMessage(myName, msg, ts, true);
+    const displayName = isSpectator ? `${myName} (観戦者)` : myName;
+
+    appendGameChatMessage(displayName, msg, ts, true);
 
     gameChatChannel.send({
         type: 'broadcast',
         event: 'message',
-        payload: { id: msgId, name: myName, message: msg, timestamp: ts, userId }
+        payload: { id: msgId, name: displayName, message: msg, timestamp: ts, userId }
     });
 
     gameChatInput.value = '';
@@ -2159,12 +2507,21 @@ function renderEmoticonReaction(emoticon) {
  * 顔文字リアクションボタン押したら通知する
  */
 function sendReaction(text, writingToChat = true) {
-    if (dataChannel && dataChannel.readyState === 'open') {
-        playReactionClickSound(text);
-        sendData({
-            type: 'emoticon-reaction',
-            emoticon: text
-        }, false); // gameTypeを付与しない共通メッセージ
+    playReactionClickSound(text);
+
+    if (isSpectator) {
+        // 観戦者はP2Pデータ通信がないため、チャットへの書き込みのみ行う
+        if (writingToChat) {
+            sendGameChatMessage(text);
+        }
+    } else {
+        // プレイヤーは画面アニメーション用のデータも送る
+        if (dataChannel && dataChannel.readyState === 'open') {
+            sendData({
+                type: 'emoticon-reaction',
+                emoticon: text
+            }, false); // gameTypeを付与しない共通メッセージ
+        }
         if (writingToChat) {
             sendGameChatMessage(text);
         }
@@ -2175,17 +2532,51 @@ function sendReaction(text, writingToChat = true) {
  * 音声リアクションボタン押したら送信する
  */
 function sendVoiceReaction(text, pitch = 1.0, rate = 1.0) {
-    if (dataChannel && dataChannel.readyState === 'open') {
-        sendData({
-            type: 'voice-reaction',
-            message: text,
-            pitch: pitch,
-            rate: rate
-        }, false); // gameTypeを付与しない共通メッセージ
+    if (isSpectator) {
+        // 観戦者はチャットへの書き込みのみ行う
+        sendGameChatMessage(text);
+    } else {
+        if (dataChannel && dataChannel.readyState === 'open') {
+            sendData({
+                type: 'voice-reaction',
+                message: text,
+                pitch: pitch,
+                rate: rate
+            }, false); // gameTypeを付与しない共通メッセージ
+        }
     }
 }
 
 function printTurnStatus(myTurn = true) {
+    // --- 観戦者向けの処理 ---
+    if (isSpectator) {
+        let isHostTurn = false;
+
+        // 観戦時は各ゲームの現在のプレイヤー変数から、ホスト(1)のターンかどうかを判定
+        if (currentGameType === 'quoridor') {
+            isHostTurn = (q_currentPlayer === 1);
+        } else if (currentGameType === 'othello') {
+            isHostTurn = (o_currentPlayer === 1);
+        } else if (currentGameType === 'buta') {
+            isHostTurn = (butaCurrentPlayer === 1);
+        } else if (currentGameType === 'babanuki') {
+            // ババ抜きの場合は myTurn がホストのターン状態と同期している
+            isHostTurn = myTurn;
+        }
+
+        // プレイヤー名を当てはめて表示 (観戦中はどちらのターンでも目立たせる)
+        if (isHostTurn) {
+            statusMessage.textContent = `${spectatorHostName} のターン`;
+        } else {
+            statusMessage.textContent = `${spectatorGuestName} のターン`;
+        }
+
+        statusMessage.classList.remove('animate-pulse', 'text-white');
+        statusMessage.classList.add('text-yellow-400', 'animate-bounce');
+
+        return; // 観戦者の場合はここで処理を終了
+    }
+
     if (myTurn) {
         statusMessage.textContent = "貴殿のターン！";
         statusMessage.classList.remove('animate-pulse', 'text-white');
@@ -2215,6 +2606,9 @@ function setupGameUI() {
     if (quoridorUI) quoridorUI.classList.add('hidden');
     if (othelloUI) othelloUI.classList.add('hidden');
     if (butaUI) butaUI.classList.add('hidden');
+
+    drawnCardMessageEl.textContent = ''; // ババ抜きのメッセージクリア
+    butaMessageEl.textContent = ''; // ぶたのしっぽのメッセージクリア
 
     if (currentGameType === 'babanuki') {
         // ババ抜きUI表示
@@ -2566,6 +2960,8 @@ function discardPairsFromHand(hand, isInitial) {
  * ゲーム初期化 (ホストのみ実行)
  */
 function initializeBabanukiGame() {
+    gameOver = false; // ババ抜きの開始時にも gameOver をリセットする
+
     const deck = createDeck();
 
     // カードを配る (2人用)
@@ -2632,9 +3028,15 @@ function initializeBabanukiGame() {
  * @param {boolean} isWinner - 自分が勝者かどうか
  */
 function showRematchPrompt(isWinner) {
+    if (isSpectator) return; // 観戦者には結果ダイアログを出さない
+
     // 既に結果送信済みなら何もしない (重複防止)
     if (gameResultSent) return;
     gameResultSent = true; // 結果送信フラグを立てる
+
+    // ゲーム終了フラグを立てて、観戦者に最終状態を送信する
+    gameOver = true;
+    if (isHost) broadcastGameState();
 
     let resultMessage = '';
     if (isWinner) {
@@ -2946,7 +3348,7 @@ function handleCardDrawn(card) {
     drawnCardMessageEl.classList.remove('text-yellow-300');
     drawnCardMessageEl.classList.add('text-white');
     if (pairFound) {
-        drawnCardMessageEl.textContent = `「${card.display}」を引きました。「${matchingCardDisplay}」とペアになり、捨てました！`;
+        drawnCardMessageEl.textContent = `貴殿が引いた「${card.display}」は「${matchingCardDisplay}」とペアになりました！`;
     } else if (card.display === 'JOKER') {
         playBuzzerSound();
         renderTextExpansionAnimation('ババだ！',
@@ -2954,13 +3356,13 @@ function handleCardDrawn(card) {
             ANIMATION_INTERVAL_TIME, BABA_EFFECT_CLASS_LIST);
         const pEl = document.createElement('p');
         pEl.classList.add('marquee');
-        pEl.textContent = '残念！ババです(^Д^)';
+        pEl.textContent = '残念！貴殿はババを引きました(^Д^)';
         drawnCardMessageEl.innerHTML = '';
         drawnCardMessageEl.appendChild(pEl);
         drawnCardMessageEl.classList.remove('text-white');
         drawnCardMessageEl.classList.add('text-yellow-300');
     } else {
-        drawnCardMessageEl.textContent = `「${card.display}」を引きました。ペアはありませんでした。`;
+        drawnCardMessageEl.textContent = `貴殿が引いた「${card.display}」はペアになりませんでした。`;
     }
 
     // ターンを交代
@@ -3011,7 +3413,7 @@ function renderOpponentHand() {
         cardEl.dataset.index = i; // インデックス
 
         // 自分のターンならクリック可能にする
-        if (myTurn) {
+        if (myTurn && !isSpectator) {
             cardEl.onclick = () => {
                 if (myTurn) {
                     // カードクリック音
@@ -3051,6 +3453,9 @@ function updateTurnStatus(shouldSendUpdate = true) {
     if (shouldSendUpdate) {
         sendData({ type: 'turn-update', myTurn: myTurn });
     }
+
+    // ホストは自分のターン状態を相手に通知した後、ゲーム状態全体もブロードキャストしてUIを確実に同期させる
+    if (isHost) broadcastGameState();
 }
 
 /**
@@ -3274,6 +3679,9 @@ function updateQuoridorUI() {
     qMoveBtn.classList.toggle('bg-gray-500', currentAction !== 'move');
     qHWallBtn.classList.toggle('bg-green-500', currentAction === 'h_wall');
     qVWallBtn.classList.toggle('bg-green-500', currentAction === 'v_wall');
+
+    // ホストは観戦用にゲーム状態をブロードキャスト
+    if (isHost) broadcastGameState();
 }
 
 // === コリドール 座標ユーティリティ ===
@@ -3315,8 +3723,8 @@ function setQuoridorAction(action) {
 }
 
 function handleQuoridorBoardClick(e) {
-    if (gameOver || q_currentPlayer !== myPlayerNum) {
-        playBuzzerSound();
+    if (isSpectator || gameOver || q_currentPlayer !== myPlayerNum) {
+        if (!isSpectator) playBuzzerSound();
         return; // 自分のターンでなければ操作不可
     }
 
@@ -3330,7 +3738,7 @@ function handleQuoridorBoardClick(e) {
 }
 
 function handleQuoridorMouseMove(e) {
-    if (gameOver || q_currentPlayer !== myPlayerNum || currentAction === 'move') {
+    if (isSpectator || gameOver || q_currentPlayer !== myPlayerNum || currentAction === 'move') {
         potentialWall = null;
         if (ctx) drawQuoridorGame(); // ホバーが消えたことを反映
         return;
@@ -3632,8 +4040,8 @@ function toggleSpStoneMode() {
 }
 
 function handleOthelloBoardClick(e) {
-    if (gameOver || o_currentPlayer !== myPlayerNum) {
-        playBuzzerSound();
+    if (isSpectator || gameOver || o_currentPlayer !== myPlayerNum) {
+        if (!isSpectator) playBuzzerSound();
         return;
     }
 
@@ -3901,6 +4309,9 @@ function updateOthelloUI() {
         oP1Ping.classList.add('hidden');
         oP2Ping.classList.add('hidden');
     }
+
+    // ホストは観戦用にゲーム状態をブロードキャスト
+    if (isHost) broadcastGameState();
 }
 
 // 石を1つずつ数えるアニメーション
@@ -4240,7 +4651,7 @@ function handleButaData(msg) {
 
 // クリックされたカードの情報を引数に受け取るように変更
 function drawButaCard(cardDisplay) {
-    if (gameOver || butaCurrentPlayer !== myPlayerNum) {
+    if (isSpectator || gameOver || butaCurrentPlayer !== myPlayerNum) {
         return; // 操作できない状態
     }
 
@@ -4305,10 +4716,10 @@ function executeButaDraw(cardDisplay) {
         renderTextExpansionAnimation('ブタだ！',
             BABA_EFFECT_START_FONT_SIZE, BABA_EFFECT_MAX_FONT_SIZE, BABA_EFFECT_GROWTH_RATE,
             ANIMATION_INTERVAL_TIME, BABA_EFFECT_CLASS_LIST);
-        butaMessageEl.textContent = `「${card.display}」は場のマークと一致したため、ペナルティ${penaltyCards}枚(;´Д\`)`;
+        butaMessageEl.textContent = `貴殿の「${card.display}」は場のマークと一致し、ペナルティ${penaltyCards}枚(;´Д\`)`;
         butaMessageEl.classList.replace('text-white', 'text-yellow-300');
     } else {
-        butaMessageEl.textContent = `「${card.display}」を引きました。`;
+        butaMessageEl.textContent = `貴殿の引いたカードは「${card.display}」です。`;
         butaMessageEl.classList.replace('text-yellow-300', 'text-white');
     }
 
@@ -4380,6 +4791,9 @@ function updateButaUI() {
             cardEl.style.cursor = isMyTurn ? 'pointer' : 'not-allowed';
         }
     });
+
+    // ホストは観戦用にゲーム状態をブロードキャスト
+    if (isHost) broadcastGameState();
 }
 
 function finishButaGame() {
@@ -4491,6 +4905,20 @@ function initializeDOMElements() {
     voiceLessBtn1.onclick = () => toggleVoiceLess();
     voiceLessBtn2 = document.getElementById('voiceless-mode-button2');
     voiceLessBtn2.onclick = () => toggleVoiceLess();
+
+    const lobbyUsersDiv = document.getElementById('active-lobby-users');
+    if (lobbyUsersDiv && !document.getElementById('active-spectators')) {
+        const spectatorDiv = document.createElement('div');
+        spectatorDiv.id = 'active-spectators';
+        spectatorDiv.className = 'border-t border-gray-300 mt-4 pt-4 hidden';
+        spectatorDiv.innerHTML = `
+            <h3 class="text-lg font-semibold text-white mb-2">観戦者</h3>
+            <div id="spectator-count" class="text-sm text-yellow-300 mb-2">人数: 0名</div>
+            <ul id="spectator-list" class="pl-0 text-white text-sm"></ul>
+        `;
+        // 待合室待機者リストの上に挿入する
+        lobbyUsersDiv.parentNode.insertBefore(spectatorDiv, lobbyUsersDiv);
+    }
 
     // コリドール用キャンバスのリサイズイベント
     window.addEventListener('resize', resizeQuoridorCanvas);

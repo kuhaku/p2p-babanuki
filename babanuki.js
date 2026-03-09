@@ -4217,7 +4217,7 @@ function handleButaData(msg) {
             playClickSound();
             if (match) {
                 playBuzzerSound();
-                butaMessageEl.textContent = `敵が引いた「${card.display}」は、場のマークと一致するのでペナルティ${penaltyCards}枚(^Д^)`;
+                butaMessageEl.textContent = `敵の「${card.display}」は、場のマークと一致してペナルティ${penaltyCards}枚(^Д^)`;
                 butaMessageEl.classList.replace('text-white', 'text-yellow-300');
             } else {
                 butaMessageEl.textContent = `敵が「${card.display}」を引きました。`;
@@ -4302,7 +4302,10 @@ function executeButaDraw(cardDisplay) {
     playClickSound();
     if (match) {
         playBuzzerSound();
-        butaMessageEl.textContent = `「${card.display}」！場のマークと一致したため、ペナルティ${penaltyCards}枚(^Д^)`;
+        renderTextExpansionAnimation('ブタだ！',
+            BABA_EFFECT_START_FONT_SIZE, BABA_EFFECT_MAX_FONT_SIZE, BABA_EFFECT_GROWTH_RATE,
+            ANIMATION_INTERVAL_TIME, BABA_EFFECT_CLASS_LIST);
+        butaMessageEl.textContent = `「${card.display}」は場のマークと一致したため、ペナルティ${penaltyCards}枚(;´Д\`)`;
         butaMessageEl.classList.replace('text-white', 'text-yellow-300');
     } else {
         butaMessageEl.textContent = `「${card.display}」を引きました。`;
@@ -4359,7 +4362,7 @@ function updateButaUI() {
     // 現在の実際の場の枚数バッジ
     const countBadge = document.getElementById('buta-center-count');
     countBadge.classList.remove('hidden');
-    countBadge.textContent = `場のカード: ${butaCenterPile.length}枚`;
+    countBadge.textContent = `場のカード: ${butaCenterPile.length} 枚`;
 
     const isMyTurn = (!gameOver && butaCurrentPlayer === myPlayerNum);
     if (!gameOver) {

@@ -337,8 +337,8 @@
             </div>
             <!-- ゲームUI -->
             <div class="md:grid md:grid-cols-2 gap-6">
-                <!-- ババ抜きUI -->
 
+                <!-- ババ抜きUI -->
                 <div id="babanuki-ui" class="hidden">
                     <!-- 相手の手札 -->
                     <div class="mb-3 p-2 bg-green-800 rounded-lg shadow-lg">
@@ -443,6 +443,7 @@
                     </div>
                 </div>
 
+                <!-- ぶたのしっぽUI -->
                 <div id="buta-ui" class="hidden">
                     <div class="flex justify-between items-center mb-2 p-2 bg-pink-800 rounded-lg shadow-md">
                         <h3 id="buta-opponent-name" class="text-white lg:text-lg font-semibold text-center">敵</h3>
@@ -450,41 +451,40 @@
                                 class="font-bold text-yellow-300 text-xl">0</span> 枚</div>
                     </div>
 
-                    <div class="flex flex-col items-center my-4">
-                        <div
-                            class="relative w-[260px] h-[260px] md:w-[360px] md:h-[360px] mb-2 flex items-center justify-center">
+                    <div class="flex flex-row justify-center items-center my-4 space-x-2 md:space-x-12">
 
+                        <div
+                            class="relative w-[240px] h-[240px] md:w-[360px] md:h-[360px] flex items-center justify-center flex-shrink-0">
                             <div class="text-center text-white z-0 flex flex-col items-center justify-center">
-                                <span class="text-sm md:text-base font-semibold text-gray-200">残りカード</span>
-                                <div class="font-bold text-6xl md:text-7xl text-yellow-300 drop-shadow-lg my-1"><span
+                                <span class="text-xs md:text-base font-semibold text-gray-200">残りカード</span>
+                                <div class="font-bold text-5xl md:text-7xl text-yellow-300 drop-shadow-lg my-1"><span
                                         id="buta-deck-count">52</span></div>
-                                <span class="text-sm md:text-base font-semibold text-gray-200">枚</span>
+                                <span class="text-xs md:text-base font-semibold text-gray-200">枚</span>
                             </div>
 
                             <div id="buta-circle-cards" class="absolute inset-0 z-10 pointer-events-none"></div>
                         </div>
 
-                        <div class="flex items-center justify-center space-x-4 md:space-x-8 mt-2">
-                            <div class="flex flex-col items-center">
-                                <span class="text-xs text-gray-300 font-bold mb-1">場のカード</span>
-                                <div id="buta-center-pile"
-                                    class="card border-dashed border-2 border-gray-400 bg-transparent flex justify-center items-center shadow-inner relative">
-                                    <span class="text-gray-400 text-lg font-bold">空</span>
-                                </div>
-                                <div id="buta-center-count"
-                                    class="hidden mt-1 bg-gray-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md z-10">
-                                    0枚</div>
-                            </div>
-
-                            <div class="text-2xl font-bold text-white">VS</div>
-
+                        <div class="flex flex-col items-center justify-center space-y-2 md:space-y-4">
                             <div class="flex flex-col items-center">
                                 <span class="text-xs text-yellow-300 font-bold mb-1">引いたカード</span>
                                 <div id="buta-drawn-card"
-                                    class="card border-dashed border-2 border-yellow-400 bg-transparent flex justify-center items-center shadow-inner">
+                                    class="card border-dashed border-2 border-yellow-400 bg-transparent flex justify-center items-center shadow-inner m-0">
                                     <span class="text-yellow-600 text-lg font-bold">？</span>
                                 </div>
-                                <div class="mt-1 invisible px-3 py-1 text-xs">ダミー</div>
+                            </div>
+
+                            <div class="text-xl md:text-2xl font-bold text-white leading-none">VS</div>
+
+                            <div class="flex flex-col items-center">
+                                <span class="text-xs text-gray-300 font-bold mb-1">場のカード</span>
+                                <div id="buta-center-pile"
+                                    class="card border-dashed border-2 border-gray-400 bg-transparent flex justify-center items-center shadow-inner relative m-0">
+                                    <span class="text-gray-400 text-lg font-bold">空</span>
+                                </div>
+                                <div id="buta-center-count"
+                                    class="hidden mt-1 bg-gray-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md z-10 whitespace-nowrap">
+                                    0枚</div>
                             </div>
                         </div>
                     </div>

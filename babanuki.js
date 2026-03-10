@@ -3274,12 +3274,6 @@ function handleCardDrawRequest(index) {
         card: drawnCard
     });
 
-    if (opponentHandSize === 0) {
-        sendData({ type: 'you-win' }); // 相手が勝利したことを通知
-        showRematchPrompt(false); // 相手が勝ち
-        return;
-    }
-
     // 相手がババを引いたときの挙動
     if (drawnCard.rank === 'JOKER') {
         playEnemyFailsSound();

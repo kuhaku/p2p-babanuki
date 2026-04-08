@@ -14,7 +14,7 @@ let isSpectator = false; // 観戦者フラグ
 let spectatorChannel = null; // 観戦機能用状態同期チャンネル
 let spectatorHostName = '';    // 観戦する対戦部屋のホストの名前を保持
 let spectatorGuestName = '';   // 観戦する対戦部屋のゲストの名前を保持
-let spectatorResultShown = false; // 結果表示済みフラグ
+let spectatorResultShown = false; // 追加: 結果表示済みフラグ
 const SYSTEM_USER_NAME = '通知';
 const SYSTEM_USER_ID = 'system';
 
@@ -59,8 +59,6 @@ const GIF_ANIMES = [
     'misao056051.gif', 'tanosi.gif', 'tanosi2.gif', 'yukarin3382.gif', 'yukarin3731.gif',
     'matari.gif', '0000001M.gif', 'qwup4713.gif', 'photoshop.gif', 'youtube.gif',
 ]
-let gifAnimeTimeLeft = 15; // 秒
-let gifAnimeTimerInterval = null;
 
 // 顔文字リアクション描画用
 const EMOTICON_REACTION_START_FONT_SIZE = 20; // 開始時のフォントサイズ (px)
@@ -1075,30 +1073,6 @@ function notifyPlayerChanges(presenceState) {
     onlinePlayers = currentOnlinePlayers;
 }
 
-function updateGIFAnime() {
-    // 新しい画像をロード
-    imageFileName = GIF_ANIMES[Math.floor(Math.random() * GIF_ANIMES.length)];
-    noPlayersImage.src = `img/${imageFileName}`;
-    resetGifAnimeTimer(); // タイマーをリセットして次の画像に備える
-}
-
-// GIFアニメタイマーをリセットするわよ！
-function resetGifAnimeTimer() {
-    clearInterval(gifAnimeTimerInterval);
-    gifAnimeTimeLeft = 60;
-    startGifAnimeTimer();
-}
-
-// GIFアニメタイマーを開始するわよ！
-function startGifAnimeTimer() {
-    gifAnimeTimerInterval = setInterval(() => {
-        gifAnimeTimeLeft--;
-        if (gifAnimeTimeLeft <= 0) {
-            updateGIFAnime();
-        }
-    }, 1000);
-}
-
 /**
  * ロビーのプレイヤー一覧を描画
  * @param {Object} presenceState - SupabaseのPresenceステート
@@ -1179,11 +1153,8 @@ function renderLobby(presenceState) {
     // プレイヤーリストが空の場合
     if (playerCount === 0) {
         noPlayersDiv.classList.remove('hidden');
-        updateGIFAnime(); // GIFアニメ開始
-    } else {
-        noPlayersDiv.classList.add('hidden');
-        clearInterval(timerInterval); // GIFアニメタイマー停止
-        gifAnimeTimeLeft = 60; // GIFアニメタイマーリセット
+        imageFileName = GIF_ANIMES[Math.floor(Math.random() * GIF_ANIMES.length)];
+        noPlayersImage.innerHTML = `<img src="img/${imageFileName}">`;
     }
 }
 

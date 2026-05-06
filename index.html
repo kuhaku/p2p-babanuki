@@ -34,9 +34,79 @@
             font-family: 'Orbitron', sans-serif;
         }
 
-        .neon-text-blue {
-            text-shadow: 0 0 5px var(--neon-blue), 0 0 10px var(--neon-blue);
-            color: var(--neon-blue);
+        .neon-text-rainbow {
+            /* 文字の芯の部分（少し白っぽくすると本物のネオン管っぽくなる） */
+            color: #ffe6e6;
+
+            /* * ぼかし（blur）の距離を変えた影を何重にも重ねて、光の拡散を表現
+             * 数値が大きくなるほど、遠くまでボワッと広がる光になる
+             */
+            text-shadow:
+                0 0 5px #ff0000,
+                /* 芯の近くの強い光 */
+                0 0 10px #ff0000,
+                /* 少し広がった光 */
+                0 0 20px #ff0000,
+                /* さらに広がった光 */
+                0 0 40px #ff0000,
+                /* ぼやけた遠くの光 */
+                0 0 80px #ff0000;
+            /* 空間に溶け込むような強いぼやけ */
+
+            /* 5つの色を1秒ごとに切り替えるため、全体を5秒(5s)に設定 */
+            /* step-end を使うことで、1秒ごとに「パキッ」と次の色に切り替わります */
+            animation: neon-flash 5s step-end infinite;
+        }
+
+        @keyframes neon-flash {
+            0% {
+                /* 1. ピンク */
+                color: #ffe6f9;
+                /* 芯の色（ほんのりピンク白） */
+                text-shadow:
+                    0 0 5px #ff00ff, 0 0 10px #ff00ff,
+                    0 0 20px #ff00ff, 0 0 40px #ff00ff, 0 0 80px #ff00ff;
+            }
+
+            20% {
+                /* 2. パープル */
+                color: #eeddff;
+                text-shadow:
+                    0 0 5px #aa00ff, 0 0 10px #aa00ff,
+                    0 0 20px #aa00ff, 0 0 40px #aa00ff, 0 0 80px #aa00ff;
+            }
+
+            40% {
+                /* 3. ブルー */
+                color: #e6ffff;
+                text-shadow:
+                    0 0 5px #00f3ff, 0 0 10px #00f3ff,
+                    0 0 20px #00f3ff, 0 0 40px #00f3ff, 0 0 80px #00f3ff;
+            }
+
+            60% {
+                /* 4. イエロー */
+                color: #ffffe6;
+                text-shadow:
+                    0 0 5px #ffff00, 0 0 10px #ffff00,
+                    0 0 20px #ffff00, 0 0 40px #ffff00, 0 0 80px #ffff00;
+            }
+
+            80% {
+                /* 5. オレンジ */
+                color: #ffeee6;
+                text-shadow:
+                    0 0 5px #ff6600, 0 0 10px #ff6600,
+                    0 0 20px #ff6600, 0 0 40px #ff6600, 0 0 80px #ff6600;
+            }
+
+            100% {
+                /* ループ用にピンクに戻す */
+                color: #ffe6f9;
+                text-shadow:
+                    0 0 5px #ff00ff, 0 0 10px #ff00ff,
+                    0 0 20px #ff00ff, 0 0 40px #ff00ff, 0 0 80px #ff00ff;
+            }
         }
 
         /* カードのスタイル */
@@ -150,7 +220,7 @@
 
         <!-- 画面 1: 名前入力 & 接続 -->
         <div id="setup-screen" class="p-6">
-            <h1 class="text-2xl font-orbitron font-bold text-center tracking-wider neon-text-blue">P2P ババ活ラウンジ</h1>
+            <h1 class="text-2xl font-orbitron font-bold text-center tracking-wider neon-text-rainbow">P2P ババ活ラウンジ</h1>
             <div class="mb-4 text-white border-gray-300 py-2">
                 <label for="name-input" class="block text-sm font-medium text-white mb-1">貴殿の名前:</label>
                 <input type="text" id="name-input"

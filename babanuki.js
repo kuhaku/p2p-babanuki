@@ -2381,10 +2381,12 @@ function cleanupConnection(shouldShowLobby = true) {
     quoridorUI = document.getElementById('quoridor-ui');
     othelloUI = document.getElementById('othello-ui');
     butaUI = document.getElementById('buta-ui');
+    kurohigeUI = document.getElementById('kurohige-ui');
     if (babanukiUI) babanukiUI.classList.add('hidden');
     if (quoridorUI) quoridorUI.classList.add('hidden');
     if (othelloUI) othelloUI.classList.add('hidden');
     if (butaUI) butaUI.classList.add('hidden');
+    if (kurohigeUI) kurohigeUI.classList.add('hidden');
 
     drawnCardMessageEl.textContent = ''; // ババ抜きの引いたカードメッセージをクリア
     butaMessageEl.textContent = ''; // ぶたのしっぽのメッセージをクリア
@@ -2855,6 +2857,14 @@ function setupGameUI() {
         kurohigeMyNameEl.innerText = `${myName} (貴殿)`;
         kurohigeOpponentNameEl.innerText = `${opponentName} (敵)`;
         kurohigeMessageEl.textContent = '';
+        kurohigePersonEl.textContent = '　 　(;´Д`) HELP!\n';
+        kurohigeBarrelEl.textContent = `　 |￣￣￣￣￣￣|
+　|　}}　||　{{　|
+　|〓〓〓〓〓〓〓|
+　|　}}　||　{{　|
+　|〓〓〓〓〓〓〓|
+　|　}}　||　{{　|
+　 |　　　　　　|`;
     }
 }
 
@@ -5226,7 +5236,6 @@ function initializeDOMElements() {
     kurohigeMyNameEl = document.getElementById('kurohige-my-name');
     kurohigeOpponentNameEl = document.getElementById('kurohige-opponent-name');
     kurohigeMessageEl = document.getElementById('kurohige-message');
-    kurohigeDisplayEl = document.getElementById('kurohige-display');
     kurohigePersonEl = document.getElementById('kurohige-person');
     kurohigeBarrelEl = document.getElementById('kurohige-barrel');
 

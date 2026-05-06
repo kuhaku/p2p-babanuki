@@ -59,7 +59,7 @@ const GIF_ANIMES = [
     'misao056051.gif', 'tanosi.gif', 'tanosi2.gif', 'yukarin3382.gif', 'yukarin3731.gif',
     'matari.gif', '0000001M.gif', 'qwup4713.gif', 'photoshop.gif', 'youtube.gif',
 ]
-let gifAnimeTimeLeft = 15; // 秒
+let gifAnimeTimeLeft = 13; // 秒
 let gifAnimeTimerInterval = null;
 
 // 顔文字リアクション描画用

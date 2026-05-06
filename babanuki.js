@@ -1056,6 +1056,7 @@ async function initLobby(myName) {
     // チャンネルの購読を開始
     lobbyChannel.subscribe((status) => {
         if (status === 'SUBSCRIBED') {
+            userStatus = 'free';
             // 購読成功したら、自分の情報をPresenceで送信
             updateMyPresence(); // ヘルパー関数を使用
             showScreen('lobby'); // ロビー画面を表示

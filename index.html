@@ -109,6 +109,10 @@
             /* 盤の色 */
         }
 
+        #kurohige-display {
+            font-family: "MS Gothic", "Inter", "Hiragino Kaku Gothic ProN", sans-serif;
+        }
+
         /* モーダル */
         #modal-overlay,
         #game-choice-modal-overlay {
@@ -164,6 +168,7 @@
             <div class="border-t border-gray-300 py-2 my-3">
                 <h2 class="my-1 py-1 text-white">お知らせ</h2>
                 <ul>
+                    <li class="text-white">2026/5/6: くうはく危機一髪ゲームを追加しましたヽ(´ー｀)ノ</li>
                     <li class="text-white">2026/3/10: 観戦機能を追加しました(´ ー｀)ｼﾞﾗｼﾞﾛ</li>
                     <li class="text-white">2026/3/9: ぶたのしっぽを追加しましたヽ(´ ー｀)ノ</li>
                     <li class="text-white">2026/3/6: おまこんリバーシのプレイ時間を短くして気軽に遊べるようにルールを変更しましたヽ(´ ー｀)ノ</li>
@@ -503,6 +508,25 @@
                                 class="font-bold text-yellow-300 text-xl">0</span> 枚</div>
                     </div>
                 </div>
+                <!-- くうはく危機一髪UI -->
+                <div id="kurohige-ui" class="hidden">
+                    <div class="flex justify-between items-center mb-2 p-2 bg-orange-800 rounded-lg shadow-md">
+                        <h3 id="kurohige-opponent-name" class="text-white lg:text-lg font-semibold text-center">敵</h3>
+                    </div>
+
+                    <div class="flex justify-center items-center my-8">
+                        <pre id="kurohige-display"
+                            class="text-white text-xl leading-snug cursor-default select-none"><span id="kurohige-person"></span><span id="kurohige-barrel"></span></pre>
+                    </div>
+
+                    <div id="kurohige-message" class="text-center text-white md:text-lg font-semibold my-4 min-h-[30px]"
+                        style="overflow: clip;">
+                    </div>
+
+                    <div class="flex justify-between items-center mt-2 p-2 bg-orange-800 rounded-lg shadow-md">
+                        <h3 id="kurohige-my-name" class="text-white md:text-lg font-semibold text-center">自分</h3>
+                    </div>
+                </div>
 
                 <!-- 共通UI (チャット・ファイル送信・ロビー情報) -->
                 <div id="common-right-column" class="mt-2 md:mt-0">
@@ -656,6 +680,10 @@
                         <button id="game-choice-quoridor"
                             class="bg-violet-600 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-violet-700 transition duration-300">
                             コリドール
+                        </button>
+                        <button id="game-choice-kurohige"
+                            class="bg-orange-600 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-orange-700 transition duration-300">
+                            くうはく危機一髪
                         </button>
                         <hr>
                         <button id="game-choice-cancel"

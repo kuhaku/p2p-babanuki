@@ -147,6 +147,35 @@ let useSpStoneMode = false;
 let othelloCanvas, oCtx, oTileSize;
 let activeOthelloEffects = [];
 
+// --- くうはく危機一髪用ゲーム変数 ---
+let kurohigeHoles = Array(9).fill(null); // null, 'knife', 'bomb'
+let kurohigeBombIndex = -1;
+let kurohigeCurrentPlayer = 1; // 1: ホスト, 2: ゲスト
+let kurohigeGameOver = false;
+let kurohigeAnimating = false;
+
+// 負けた時の文字絵
+const KUROHIGE_ANIMATION_FRAMES = [
+    `　　　 ！？
+　 　(;´Д\`)
+`,
+
+    `　 ヽ(;´Д\`)ノ あ！
+　　　(　　 )
+`,
+
+    `　 ヽ(;´Д\`)ノ ああっ！
+　　　(　　 )
+　　　ノωヽ
+`,
+
+    `　 ヽ(;´Д\`)ノ　うわああ
+　　　(　　 )
+　　　ノωヽ
+　　　 川川
+
+`
+];
 
 function escapeChar(str) {
     return str.replace(/&/g, '&amp;').replace(/</g, '&#60;').replace(/>/g, '&#62;')
@@ -656,6 +685,7 @@ function showGameChoiceModal(targetUserId, targetName) {
     gameChoiceQuoridorBtn.onclick = () => sendInvite(targetUserId, targetName, 'quoridor');
     gameChoiceOthelloBtn.onclick = () => sendInvite(targetUserId, targetName, 'othello');
     gameChoiceButaBtn.onclick = () => sendInvite(targetUserId, targetName, 'buta');
+    gameChoiceKurohigeBtn.onclick = () => sendInvite(targetUserId, targetName, 'kurohige');
     gameChoiceCancelBtn.onclick = hideGameChoiceModal;
 }
 
@@ -1429,6 +1459,13 @@ function broadcastGameState() {
         state.myTurn = myTurn;
         state.babanukiMessage = drawnCardMessageEl.innerHTML;
         state.gameOver = gameOver;
+    } else if (currentGameType === 'kurohige') {
+        state.kurohigeHoles = kurohigeHoles;
+        state.kurohigeBombIndex = kurohigeBombIndex;
+        state.kurohigeCurrentPlayer = kurohigeCurrentPlayer;
+        state.gameOver = kurohigeGameOver;
+        state.kurohigeMessage = kurohigeMessageEl.innerHTML;
+        state.kurohigeAnimating = kurohigeAnimating;
     }
 
     spectatorChannel.send({ type: 'broadcast', event: 'state-update', payload: state });
@@ -1481,6 +1518,15 @@ function applyGameStateFromHost(state) {
         renderMyHand();
         renderOpponentHand();
         printTurnStatus(myTurn);
+    } else if (state.gameType === 'kurohige') {
+        kurohigeHoles = state.kurohigeHoles;
+        kurohigeBombIndex = state.kurohigeBombIndex;
+        kurohigeCurrentPlayer = state.kurohigeCurrentPlayer;
+        gameOver = state.gameOver;
+        kurohigeGameOver = state.gameOver;
+        kurohigeAnimating = state.kurohigeAnimating;
+        kurohigeMessageEl.innerHTML = formatMessageForSpectator(state.kurohigeMessage || '');
+        updateKurohigeUI();
     }
 
     // 最後に勝敗判定と結果モーダルの表示チェックを行う
@@ -1529,6 +1575,11 @@ function checkAndShowSpectatorResult(state) {
         } else if (state.opponentHandSize === 0) {
             isGameOver = true;
             resultMessage = `${spectatorGuestName} がババ抜きで大勝利！`;
+        } else if (state.gameType === 'kurohige' && state.gameOver) {
+            isGameOver = true;
+            // 当たりを引いた方が負けなので、現在のプレイヤーでない方が勝者
+            let winner = state.kurohigeCurrentPlayer === 1 ? spectatorGuestName : spectatorHostName;
+            resultMessage = `${winner} がくうはく危機一髪で大勝利！`;
         }
     }
 
@@ -1642,6 +1693,9 @@ function sendInvite(targetUserId, targetName, gameType) {
         case 'buta':
             gameName = 'ぶたのしっぽ';
             break;
+        case 'kurohige':
+            gameName = 'くうはく危機一髪';
+            break;
     }
     showModal('招待中', `${targetName} を ${gameName} に誘ってます……`, [
         { text: 'やっぱやめる', class: 'bg-gray-500', action: cancelInvite }
@@ -1710,6 +1764,9 @@ function handleInvite(payload) {
             break;
         case 'buta':
             gameName = 'ぶたのしっぽ';
+            break;
+        case 'kurohige':
+            gameName = 'くうはく危機一髪';
             break;
     }
     showModal('挑戦者現る！', `${payload.senderName}から ${gameName} のお誘いがきました`, [
@@ -1840,6 +1897,9 @@ function handleAccept(payload) {
             break;
         case 'buta':
             gameName = 'ぶたのしっぽ';
+            break;
+        case 'kurohige':
+            gameName = 'くうはく危機一髪';
             break;
     }
     sendLobbyNotification(`${myName} と ${opponentName} の ${gameName} 対戦開始`);
@@ -2008,6 +2068,8 @@ function setupDataChannelListeners() {
                 initOthelloGame();
             } else if (currentGameType === 'buta') {
                 initButaGame();
+            } else if (currentGameType === 'kurohige') {
+                initKurohigeGame();
             }
             // ホスト側のみ roomId を生成・送信
             createRoomAndShare();
@@ -2039,6 +2101,8 @@ function setupDataChannelListeners() {
             handleOthelloData(msg);
         } else if (msg.gameType === 'buta') {
             handleButaData(msg);
+        } else if (msg.gameType === 'kurohige') {
+            handleKurohigeData(msg);
         } else {
             // ゲームタイプが不明な共通メッセージ（チャットルームIDなど）
             switch (msg.type) {
@@ -2333,6 +2397,13 @@ function resetGameVariables() {
     butaPreviousCenterCard = null;
     butaLastMatch = false;
 
+    // くうはく危機一髪
+    kurohigeHoles = Array(9).fill(null);
+    kurohigeBombIndex = -1;
+    kurohigeCurrentPlayer = 1;
+    kurohigeGameOver = false;
+    kurohigeAnimating = false;
+
     // 再戦フラグをリセット
     rematchRequested = false;
     opponentRematchRequested = false;
@@ -2591,6 +2662,8 @@ function printTurnStatus(myTurn = true) {
         } else if (currentGameType === 'babanuki') {
             // ババ抜きの場合は myTurn がホストのターン状態と同期している
             isHostTurn = myTurn;
+        } else if (currentGameType === 'kurohige') {
+            isHostTurn = (kurohigeCurrentPlayer === 1);
         }
 
         // プレイヤー名を当てはめて表示 (観戦中はどちらのターンでも目立たせる)
@@ -2631,10 +2704,12 @@ function setupGameUI() {
     quoridorUI = document.getElementById('quoridor-ui');
     othelloUI = document.getElementById('othello-ui');
     butaUI = document.getElementById('buta-ui');
+    kurohigeUI = document.getElementById('kurohige-ui');
     if (babanukiUI) babanukiUI.classList.add('hidden');
     if (quoridorUI) quoridorUI.classList.add('hidden');
     if (othelloUI) othelloUI.classList.add('hidden');
     if (butaUI) butaUI.classList.add('hidden');
+    if (kurohigeUI) kurohigeUI.classList.add('hidden');
 
     drawnCardMessageEl.textContent = ''; // ババ抜きのメッセージクリア
     butaMessageEl.textContent = ''; // ぶたのしっぽのメッセージクリア
@@ -2645,6 +2720,7 @@ function setupGameUI() {
         quoridorUI.classList.add('hidden');
         othelloUI.classList.add('hidden');
         butaUI.classList.add('hidden');
+        kurohigeUI.classList.add('hidden');
 
         // ババ抜き用UI要素のセットアップ
         myNameEl.innerText = `${myName} (貴殿)`;
@@ -2659,6 +2735,7 @@ function setupGameUI() {
         babanukiUI.classList.add('hidden');
         othelloUI.classList.add('hidden');
         butaUI.classList.add('hidden');
+        kurohigeUI.classList.add('hidden');
 
         // コリドール用UI要素のセットアップ
         // P1 (ホスト) が青、 P2 (ゲスト) が赤
@@ -2723,10 +2800,22 @@ function setupGameUI() {
         babanukiUI.classList.add('hidden');
         quoridorUI.classList.add('hidden');
         othelloUI.classList.add('hidden');
+        kurohigeUI.classList.add('hidden');
 
         butaMyNameEl.innerText = `${myName} (貴殿)`;
         butaOpponentNameEl.innerText = `${opponentName} (敵)`;
         butaMessageEl.textContent = '';
+    } else if (currentGameType === 'kurohige') {
+        // くうはく危機一髪UI表示
+        kurohigeUI.classList.remove('hidden');
+        babanukiUI.classList.add('hidden');
+        quoridorUI.classList.add('hidden');
+        othelloUI.classList.add('hidden');
+        butaUI.classList.add('hidden');
+
+        kurohigeMyNameEl.innerText = `${myName} (貴殿)`;
+        kurohigeOpponentNameEl.innerText = `${opponentName} (敵)`;
+        kurohigeMessageEl.textContent = '';
     }
 }
 
@@ -3276,6 +3365,13 @@ function restartGame() {
         if (isHost) {
             statusMessage.textContent = "再戦開始...カードを準備しています...";
             initButaGame();
+        } else {
+            statusMessage.textContent = "再戦開始...ホストを待っています...";
+        }
+    } else if (currentGameType === 'kurohige') {
+        if (isHost) {
+            statusMessage.textContent = "再戦開始...樽と生贄を準備しています...";
+            initKurohigeGame();
         } else {
             statusMessage.textContent = "再戦開始...ホストを待っています...";
         }
@@ -4830,6 +4926,174 @@ function finishButaGame() {
 }
 
 
+// --- 14. くうはく危機一髪ゲームロジック ---
+
+// ゲームの初期化
+function initKurohigeGame() {
+    kurohigeBombIndex = Math.floor(Math.random() * 9);
+    kurohigeHoles = Array(9).fill(null);
+    kurohigeCurrentPlayer = (Math.random() < 0.5) ? 1 : 2; // 先攻をランダムに
+    kurohigeGameOver = false;
+    gameOver = false;
+    kurohigeAnimating = false;
+
+    // ゲストへ状態を送信
+    sendData({
+        type: 'kurohige-init',
+        bombIndex: kurohigeBombIndex,
+        currentPlayer: kurohigeCurrentPlayer
+    });
+
+    // ターンの状態に合わせて開始メッセージを出し分ける
+    if (kurohigeCurrentPlayer === myPlayerNum) {
+        kurohigeMessageEl.textContent = '入れる穴を選べ！';
+    } else {
+        kurohigeMessageEl.textContent = '敵が穴を選んでます……。';
+    }
+    updateKurohigeUI();
+}
+
+// ゲストや通信対戦でのデータ受信処理
+function handleKurohigeData(msg) {
+    switch (msg.type) {
+        case 'kurohige-init':
+            kurohigeBombIndex = msg.bombIndex;
+            kurohigeHoles = Array(9).fill(null);
+            kurohigeCurrentPlayer = msg.currentPlayer;
+            kurohigeGameOver = false;
+            gameOver = false;
+            kurohigeAnimating = false;
+            // ターンの状態に合わせて開始メッセージを出し分ける
+            if (kurohigeCurrentPlayer === myPlayerNum) {
+                kurohigeMessageEl.textContent = '入れる穴を選べ！';
+            } else {
+                kurohigeMessageEl.textContent = '敵が穴を選んでます……。';
+            }
+            updateKurohigeUI();
+            break;
+        case 'kurohige-stab':
+            executeKurohigeStab(msg.index, msg.playerNum);
+            break;
+    }
+}
+
+// ユーザーがクリックしたときの処理
+function stabKurohige(index) {
+    if (isSpectator || kurohigeGameOver || kurohigeAnimating || kurohigeCurrentPlayer !== myPlayerNum) {
+        if (!isSpectator && !kurohigeGameOver && !kurohigeAnimating) playBuzzerSound();
+        return;
+    }
+    if (kurohigeHoles[index] !== null) return;
+
+    // 自分と相手に反映
+    sendData({ type: 'kurohige-stab', index: index, playerNum: myPlayerNum });
+    executeKurohigeStab(index, myPlayerNum);
+}
+
+// 刺した結果の反映とターンの切り替え
+function executeKurohigeStab(index, playerNum) {
+    if (index === kurohigeBombIndex) {
+        // 当たり（爆発）
+        kurohigeHoles[index] = 'bomb';
+        kurohigeGameOver = true;
+        gameOver = true; // 全体フラグ
+        kurohigeAnimating = true;
+
+        if (playerNum === myPlayerNum) {
+            kurohigeMessageEl.textContent = 'ドカーン！貴殿が殺しました(^Д^)';
+            kurohigeMessageEl.classList.replace('text-white', 'text-yellow-300');
+        } else {
+            kurohigeMessageEl.textContent = 'やった！貴殿の勝ち！ヽ(´ー｀)ノ';
+            kurohigeMessageEl.classList.replace('text-yellow-300', 'text-white');
+        }
+
+        playBuzzerSound();
+        renderKurohige();
+
+        // 観戦者への状態同期
+        if (isHost) broadcastGameState();
+
+        // 少し待ってからアニメーション開始
+        setTimeout(() => playKurohigeAnimation(playerNum), 500);
+
+    } else {
+        // セーフ
+        kurohigeHoles[index] = 'knife';
+        playClickSound();
+
+        if (playerNum === myPlayerNum) {
+            kurohigeMessageEl.textContent = 'セーフ！ヽ(´ー｀)ノ';
+        } else {
+            kurohigeMessageEl.textContent = '貴殿の番です！';
+        }
+
+        // ターン交代
+        kurohigeCurrentPlayer = (kurohigeCurrentPlayer === 1) ? 2 : 1;
+        updateKurohigeUI();
+    }
+}
+
+// UIの更新（ターン表示と文字絵の描画）
+function updateKurohigeUI() {
+    if (!kurohigeGameOver) {
+        const isMyTurn = (kurohigeCurrentPlayer === myPlayerNum);
+        printTurnStatus(isMyTurn);
+        kurohigePersonEl.textContent = '　 　(;´Д`)　 HELP!\n';
+    } else {
+        statusMessage.textContent = "ゲーム終了！";
+        statusMessage.classList.remove('animate-pulse');
+    }
+
+    renderKurohige();
+    if (isHost) broadcastGameState();
+}
+
+// 樽の文字絵描画
+function renderKurohige() {
+    if (kurohigeAnimating) return; // アニメーション中は再描画しない
+
+    const getHole = (idx, defaultStr) => {
+        if (kurohigeHoles[idx] === 'knife') return `<span class="text-gray-400">🔪</span>`;
+        if (kurohigeHoles[idx] === 'bomb') return `<span class="text-red-500 animate-ping inline-block">💥</span>`;
+
+        // クリック可能な穴
+        const cursor = (kurohigeCurrentPlayer === myPlayerNum && !isSpectator && !kurohigeGameOver) ? 'cursor-pointer hover:text-white transition-colors' : 'cursor-not-allowed';
+        return `<span class="text-yellow-300 ${cursor}" onclick="stabKurohige(${idx})">${defaultStr}</span>`;
+    };
+
+    const barrel = `　 |￣￣￣￣￣￣|
+　|　${getHole(0, '}}')}　${getHole(1, '||')}　${getHole(2, '{{')}　|
+　|〓〓〓〓〓〓〓|
+　|　${getHole(3, '}}')}　${getHole(4, '||')}　${getHole(5, '{{')}　|
+　|〓〓〓〓〓〓〓|
+　|　${getHole(6, '}}')}　${getHole(7, '||')}　${getHole(8, '{{')}　|
+　 |　　　　　　|`;
+
+    kurohigeBarrelEl.innerHTML = barrel;
+}
+
+// 負けアニメーションの再生と勝敗の決定
+function playKurohigeAnimation(explodedPlayerNum) {
+    let frame = 0;
+    const animInterval = setInterval(() => {
+        kurohigePersonEl.innerHTML = KUROHIGE_ANIMATION_FRAMES[frame];
+        if (isHost) broadcastGameState(); // アニメーションのコマも観戦者に同期
+        frame++;
+
+        if (frame >= KUROHIGE_ANIMATION_FRAMES.length) {
+            clearInterval(animInterval);
+            kurohigeAnimating = false;
+
+            // 当たりを引いた方が負け
+            const isWinner = (explodedPlayerNum !== myPlayerNum);
+            setTimeout(() => {
+                showRematchPrompt(isWinner);
+            }, 500);
+        }
+    }, 400);
+}
+
+
 // --- DOM初期化 ---
 function initializeDOMElements() {
     // 共通
@@ -4916,6 +5180,16 @@ function initializeDOMElements() {
         oCtx = othelloCanvas.getContext('2d');
         window.addEventListener('resize', resizeOthelloCanvas);
     }
+
+    // くうはく危機一髪DOM
+    gameChoiceKurohigeBtn = document.getElementById('game-choice-kurohige');
+    kurohigeUI = document.getElementById('kurohige-ui');
+    kurohigeMyNameEl = document.getElementById('kurohige-my-name');
+    kurohigeOpponentNameEl = document.getElementById('kurohige-opponent-name');
+    kurohigeMessageEl = document.getElementById('kurohige-message');
+    kurohigeDisplayEl = document.getElementById('kurohige-display');
+    kurohigePersonEl = document.getElementById('kurohige-person');
+    kurohigeBarrelEl = document.getElementById('kurohige-barrel');
 
     // 共通 (ゲーム画面)
     gameChatMessages = document.getElementById('game-chat-messages');

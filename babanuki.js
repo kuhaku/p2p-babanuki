@@ -175,6 +175,14 @@ const KUROHIGE_ANIMATION_FRAMES = [
 　　　ノωヽ
 　　　 川川
 
+`,
+    `　　　＿△＿
+　 　(;´人\`)　南無
+　　　(　　)
+　　　ノωヽ
+　　　 川川
+
+
 `
 ];
 

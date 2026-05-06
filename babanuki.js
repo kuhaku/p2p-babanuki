@@ -1182,7 +1182,7 @@ function renderLobby(presenceState) {
         updateGIFAnime(); // GIFアニメ開始
     } else {
         noPlayersDiv.classList.add('hidden');
-        clearInterval(timerInterval); // GIFアニメタイマー停止
+        clearInterval(gifAnimeTimerInterval); // GIFアニメタイマー停止
         gifAnimeTimeLeft = 60; // GIFアニメタイマーリセット
     }
 }

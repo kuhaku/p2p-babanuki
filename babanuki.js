@@ -4,6 +4,7 @@ let myName = '';
 let userId = '';
 let peerConnection;
 let dataChannel;
+let iceCandidateQueue = [];
 let lobbyChannel; // Presence用
 let signalChannel; // Broadcast用 (招待/SDP/ICE交換)
 let opponentUserId = '';
@@ -1934,6 +1935,16 @@ async function createOffer() {
 async function handleOffer(payload) {
     try {
         await peerConnection.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+
+        for (const candidate of iceCandidateQueue) {
+            try {
+                await peerConnection.addIceCandidate(candidate);
+            } catch (e) {
+                console.warn("キューのICE追加エラー:", e);
+            }
+        }
+        iceCandidateQueue = [];
+
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
 
@@ -1951,6 +1962,17 @@ async function handleOffer(payload) {
 async function handleAnswer(payload) {
     try {
         await peerConnection.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+
+        // キューに溜まったICE候補を処理して空にする
+        for (const candidate of iceCandidateQueue) {
+            try {
+                await peerConnection.addIceCandidate(candidate);
+            } catch (e) {
+                console.warn("キューのICE追加エラー:", e);
+            }
+        }
+        iceCandidateQueue = [];
+
     } catch (error) {
         console.error("Answerの処理に失敗:", error);
     }
@@ -1959,8 +1981,15 @@ async function handleAnswer(payload) {
 // 6.10 ICE候補の交換 (両方)
 function handleIceCandidate(payload) {
     try {
-        if (payload.candidate) {
-            peerConnection.addIceCandidate(new RTCIceCandidate(payload.candidate));
+        if (payload.candidate && peerConnection) { // peerConnectionの存在チェックを追加
+            const candidate = new RTCIceCandidate(payload.candidate);
+
+            if (peerConnection.remoteDescription && peerConnection.remoteDescription.type) {
+                peerConnection.addIceCandidate(candidate).catch(e => console.warn("ICE追加エラー:", e));
+            } else {
+                // まだOffer/Answerを処理中ならキューに溜める
+                iceCandidateQueue.push(candidate);
+            }
         }
     } catch (error) {
         console.error("ICE候補の追加に失敗:", error);
@@ -2028,6 +2057,14 @@ function setupPeerConnection() {
             statusMessage.textContent = "接続完了！ゲーム開始を待っています...";
         } else if (peerConnection.connectionState === 'failed' || peerConnection.connectionState === 'disconnected') {
             // 相手が予期せず切断した場合
+            handleHangup();
+        }
+    };
+
+    peerConnection.oniceconnectionstatechange = (event) => {
+        if (peerConnection.iceConnectionState === 'connected' || peerConnection.iceConnectionState === 'completed') {
+            statusMessage.textContent = "接続完了！ゲーム開始を待っています...";
+        } else if (peerConnection.iceConnectionState === 'failed' || peerConnection.iceConnectionState === 'disconnected') {
             handleHangup();
         }
     };
@@ -2409,6 +2446,7 @@ function resetGameVariables() {
     opponentRematchRequested = false;
 
     gameResultSent = false; // 結果送信フラグをリセット
+    iceCandidateQueue = [];
 }
 
 // ホストがroomIdを生成し、相手に送信する

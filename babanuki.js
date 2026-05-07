@@ -1895,6 +1895,10 @@ function handleAccept(payload) {
     opponentName = payload.senderName;
     currentGameType = payload.gameType; // 相手が合意したゲームタイプをセット
 
+    // ここで roomId を生成し、Presence更新前にセットする
+    roomId = crypto.randomUUID();
+    setupSpectatorChannel(roomId); // ホストの観戦用チャンネルを作成
+
     setupPeerConnection(); // ホスト側
 
     // ホストがOfferを作成
@@ -2169,6 +2173,9 @@ function setupDataChannelListeners() {
                     } catch (err) {
                         console.error('setupGameChat呼び出しエラー:', err);
                     }
+
+                    // ゲスト側も room_id を反映させるためPresenceを更新
+                    updateMyPresence();
                     break;
                 case 'emoticon-reaction':
                     emoticon = msg.emoticon;
@@ -2471,15 +2478,10 @@ function resetGameVariables() {
 
 // ホストがroomIdを生成し、相手に送信する
 async function createRoomAndShare() {
-    roomId = crypto.randomUUID();
-
-    setupSpectatorChannel(roomId); // ホストも観戦用チャンネルを作成
-
+    // ゲストへの roomId 共有のみ行う
     if (dataChannel && dataChannel.readyState === 'open') {
         sendData({ type: 'roomId', roomId: roomId }, false);
     }
-
-    updateMyPresence(); // ルームID決定後にPresenceを更新して観戦ボタンを出させる
 }
 
 // 対戦部屋チャット初期化

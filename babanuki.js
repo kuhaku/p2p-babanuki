@@ -1085,7 +1085,7 @@ async function initLobby(myName) {
  * @param {Object} presenceState - SupabaseのPresenceステート
  */
 function notifyPlayerChanges(presenceState) {
-    currentOnlinePlayers = new Set();
+    let currentOnlinePlayers = new Set();
     for (const key in presenceState) {
         const presences = presenceState[key];
 
@@ -1341,13 +1341,12 @@ function exitToLobby() {
         }
     }
 
-    if (userStatus !== 'free') {
-        userStatus = "free";
-        updateMyPresence();
-    }
-
     // 接続をクリーンアップ
     cleanupConnection(true); // ロビーに戻る
+
+    // 完全に情報をリセットした状態でPresenceを更新する
+    userStatus = "free";
+    updateMyPresence();
 }
 
 // --- 観戦機能用関数群 ---
@@ -1736,13 +1735,12 @@ function cancelInvite() {
         senderUserId: userId
     });
 
-    // 自分の状態をリセット
-    if (userStatus !== 'free') {
-        userStatus = "free";
-        updateMyPresence();
-    }
     hideModal();
-    resetGameVariables();
+    resetGameVariables(); // 先に状態を綺麗にする
+
+    // 自分の状態をリセットして送信
+    userStatus = "free";
+    updateMyPresence();
 }
 
 // 6.2 招待受信 (ゲスト)
@@ -1807,14 +1805,13 @@ function rejectInvite(targetUserId) {
         reason: 'rejected'
     });
 
-    // 自分の状態をリセット
-    if (userStatus !== 'free') {
-        userStatus = "free";
-        updateMyPresence();
-    }
+    hideModal();
     resetGameVariables();
 
-    hideModal();
+    // 自分の状態をリセットして送信
+    userStatus = "free";
+    updateMyPresence();
+
     // ロビー画面に戻る
     showScreen('lobby');
 }
@@ -2430,6 +2427,8 @@ function resetGameVariables() {
     // 共通
     currentGameType = null;
     myPlayerNum = 0;
+    roomId = null;
+    isHost = false;
 
     // ババ抜き
     myTurn = false;

@@ -1047,9 +1047,9 @@ async function initLobby(myName) {
     // Presenceイベントの購読
     lobbyChannel.on('presence', { event: 'sync' }, () => {
         const newState = lobbyChannel.presenceState();
-        showActiveLobbyUsersInGame(newState);  // 対戦中画面 
+        showActiveLobbyUsersInGame(newState);  // 対戦中画面
         showSpectatorsInGame(newState);        // 観戦者リストを更新
-        renderLobby(newState);                 // ロビー画面 
+        renderLobby(newState);                 // ロビー画面
         notifyPlayerChanges(newState);         // 挨拶など
     });
     // 誰かが参加した時

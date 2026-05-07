@@ -1411,6 +1411,9 @@ function adjustUIForSpectator(hostName, guestName) {
     } else if (currentGameType === 'babanuki') {
         myNameEl.innerText = `${hostName}`;
         opponentNameEl.innerText = `${guestName}`;
+    } else if (currentGameType === 'kurohige') {
+        kurohigeMyNameEl.innerText = `${hostName}`;
+        kurohigeOpponentNameEl.innerText = `${guestName}`;
     }
 }
 
@@ -1476,6 +1479,7 @@ function broadcastGameState() {
         state.gameOver = kurohigeGameOver;
         state.kurohigeMessage = kurohigeMessageEl.innerHTML;
         state.kurohigeAnimating = kurohigeAnimating;
+        state.kurohigePerson = kurohigePersonEl.innerHTML;
     }
 
     spectatorChannel.send({ type: 'broadcast', event: 'state-update', payload: state });
@@ -1536,6 +1540,12 @@ function applyGameStateFromHost(state) {
         kurohigeGameOver = state.gameOver;
         kurohigeAnimating = state.kurohigeAnimating;
         kurohigeMessageEl.innerHTML = formatMessageForSpectator(state.kurohigeMessage || '');
+
+        // アニメーション中または終了時は、ホストから送られてきた文字絵をそのまま反映する
+        if (state.kurohigePerson) {
+            kurohigePersonEl.innerHTML = state.kurohigePerson;
+        }
+
         updateKurohigeUI();
     }
 
@@ -1585,12 +1595,12 @@ function checkAndShowSpectatorResult(state) {
         } else if (state.opponentHandSize === 0) {
             isGameOver = true;
             resultMessage = `${spectatorGuestName} がババ抜きで大勝利！`;
-        } else if (state.gameType === 'kurohige' && state.gameOver) {
-            isGameOver = true;
-            // 当たりを引いた方が負けなので、現在のプレイヤーでない方が勝者
-            let winner = state.kurohigeCurrentPlayer === 1 ? spectatorGuestName : spectatorHostName;
-            resultMessage = `${winner} がくうはく危機一髪で大勝利！`;
         }
+    } else if (state.gameType === 'kurohige' && state.gameOver) {
+        isGameOver = true;
+        // 当たりを引いた方が負けなので、現在のプレイヤーでない方が勝者
+        let winner = state.kurohigeCurrentPlayer === 1 ? spectatorGuestName : spectatorHostName;
+        resultMessage = `${winner} がくうはく危機一髪で大勝利！`;
     }
 
     // ゲームが終わっていたらモーダルを表示

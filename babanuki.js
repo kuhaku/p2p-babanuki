@@ -687,7 +687,7 @@ function hideModal() {
  * ゲーム選択モーダルを表示
  */
 function showGameChoiceModal(targetUserId, targetName) {
-    gameChoiceModalTitle.textContent = `${targetName} を招待`;
+    gameChoiceModalTitle.textContent = `${targetName} を誘う`;
     gameChoiceModalOverlay.classList.remove('hidden');
 
     gameChoiceBabanukiBtn.onclick = () => sendInvite(targetUserId, targetName, 'babanuki');

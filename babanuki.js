@@ -838,8 +838,8 @@ function checkUserName() {
     if (!myName) {
         candidateName = generateUserName();
         showModal('⚠️ 名前が未入力です', `名前を ${candidateName} にしますか？`, [
-            { text: 'いいえ', class: 'bg-gray-500', action: hideModal },
             { text: 'はい', class: 'bg-green-500', action: () => { nameInput.value = candidateName; hideModal(); } },
+            { text: 'いいえ', class: 'bg-gray-500', action: hideModal },
         ]);
     } else if (myName === SYSTEM_USER_NAME) {
         myName += '（騙り）';
@@ -1855,8 +1855,8 @@ function handleInvite(payload) {
             break;
     }
     showModal('挑戦者現る！', `${payload.senderName}から ${gameName} のお誘いがきました`, [
-        { text: '拒否', class: 'bg-red-500', action: () => rejectInvite(payload.senderUserId) },
         { text: '許可', class: 'bg-green-600', action: acceptInvite },
+        { text: '拒否', class: 'bg-red-500', action: () => rejectInvite(payload.senderUserId) },
     ]);
 }
 
@@ -3324,6 +3324,13 @@ function showRematchPrompt(isWinner) {
 
     showModal(title, body, [
         {
+            text: '再戦する',
+            class: 'bg-green-600',
+            action: () => {
+                sendRematchRequest();
+            }
+        },
+        {
             text: '終了する',
             class: 'bg-gray-500',
             action: () => {
@@ -3331,13 +3338,6 @@ function showRematchPrompt(isWinner) {
                 sendData({ type: 'rematch-decline' }, false); // 共通メッセージ
                 // カウントダウン処理へ
                 startExitCountdown('ゲーム終了', '再戦は不成立となりました。待合室に戻ります。');
-            }
-        },
-        {
-            text: '再戦する',
-            class: 'bg-green-600',
-            action: () => {
-                sendRematchRequest();
             }
         },
         {
@@ -3421,7 +3421,7 @@ function startExitCountdown(title, body) {
 
     const buttons = [
         {
-            text: 'ロビーに戻る',
+            text: '待合室に戻る',
             class: 'bg-green-500',
             action: () => {
                 clearInterval(gameExitTimer); // タイマー停止
@@ -3432,7 +3432,7 @@ function startExitCountdown(title, body) {
     ];
 
     // 最初のモーダル表示
-    const initialBody = `${bodyText} (${countdown}秒後に自動でロビーに戻ります)`;
+    const initialBody = `${bodyText} (${countdown}秒後に自動で待合室に戻ります)`;
     showModal(modalTitleText, initialBody, buttons);
 
     // カウントダウンタイマーを開始
@@ -3443,7 +3443,7 @@ function startExitCountdown(title, body) {
         if (countdown > 0) {
             // モーダルがまだ表示されているか確認
             if (!modalOverlay.classList.contains('hidden')) {
-                modalBodyEl.textContent = `${bodyText} (${countdown}秒後に自動でロビーに戻ります)`;
+                modalBodyEl.textContent = `${bodyText} (${countdown}秒後に自動で待合室に戻ります)`;
             }
         } else {
             // タイムアウト
@@ -3549,7 +3549,7 @@ function handleCardDrawRequest(index) {
     } else {
         drawnCardMessageEl.classList.remove('text-yellow-300');
         drawnCardMessageEl.classList.add('text-white');
-        drawnCardMessageEl.textContent = `敵が「${drawnCard.display}」を引きました。`;
+        drawnCardMessageEl.textContent = `敵が「${drawnCard.display}」を引いた`;
     }
 
     // 相手がドローしたので、自分のターンが始まる

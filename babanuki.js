@@ -159,94 +159,94 @@ let kurohigeAnimationType = 0;
 // 負けた時の文字絵
 const KUROHIGE_ANIMATION_FRAMES = [
     [
-        `　　　 ！？
-　 　(;´Д\`)
+        `       ！？
+     (;´Д\`)
 `,
 
-        `　 ヽ(;´Д\`)ノ え！？
-　　　(　　 )
+        `   ヽ(;´Д\`)ノ え！？
+      (     )
 `,
 
-        `　 ヽ(;´Д\`)ノ あっ！
-　　　(　　 )
-　　　ノωヽ
+        `   ヽ(;´Д\`)ノ あっ！
+      (     )
+      ノωヽ
 `,
 
-        `　 ヽ(;´Д\`)ノ　うわああ！
-　　　(　　 )
-　　　ノωヽ
-　　　 川川
+        `   ヽ(;´Д\`)ノ  うわああ！
+      (     )
+      ノωヽ
+       川川
 
 `,
-        `　　　＿△＿
-　 　(;´人\`)　南無
-　　　(　　)
-　　　ノωヽ
-　　　 川川
+        `      ＿△＿
+     (;´人\`)  南無
+      (    )
+      ノωヽ
+       川川
 
 
 `
     ],
     [
-        `　　　 ！？
-　 　(;´Д\`)
+        `       ！？
+     (;´Д\`)
 `,
-        `　　　 |　　|
-　　　(;´Д\`)
+        `       |    |
+      (;´Д\`)
 `,
-        `　　　(⌒⌒⌒)
-　　　 |　　|
-　　　(;´Д\`)
+        `      (⌒⌒⌒)
+       |    |
+      (;´Д\`)
 `,
-        `　　(⌒⌒⌒)
-　　 ＼　　＼
-　　　(;´Д\`)
+        `    (⌒⌒⌒)
+     ＼    ＼
+      (;´Д\`)
 `,
         ` (⌒⌒⌒)
-　＼　　＼
-　　＼　　＼
-　　　(;´Д\`)
+  ＼    ＼
+    ＼    ＼
+      (;´Д\`)
 `,
-        `　(⌒⌒⌒)
-　 ＼　　＼
-　　 ＼　　＼
-　　　(;´Д\`)
+        `  (⌒⌒⌒)
+   ＼    ＼
+     ＼    ＼
+      (;´Д\`)
 `,
-        `　　　　(⌒⌒⌒)
-　　　 /　　/
-　　　/　　/
-　　　(;´Д\`)
+        `        (⌒⌒⌒)
+       /    /
+      /    /
+      (;´Д\`)
 `,
-        `　　　　　　(⌒⌒⌒)
-　　　　　／　　／
-　　　　／　　／
-　　　(;´Д\`)
+        `            (⌒⌒⌒)
+          ／    ／
+        ／    ／
+      (;´Д\`)
 `,
-        `　　　(⌒⌒⌒)　ドカーン
-　　　 |　　|
-　　　 |　　|
-　　　(;´Д\`)
+        `      (⌒⌒⌒)  ドカーン
+       |    |
+       |    |
+      (;´Д\`)
 `,
-        `　　　(⌒⌒⌒)　ドカーン
-　　　 |　　|
-　　　 |　　|
-　　　(;´Д\`)＿
-　　　<(　　)ノ
+        `      (⌒⌒⌒)  ドカーン
+       |    |
+       |    |
+      (;´Д\`)＿
+      <(    )ノ
 `,
-        `　　　(⌒⌒⌒)　ドカーン
-　　　 |　　|
-　　　 |　　|
-　　　(;´Д\`)＿
-　　　<(　　)ノ
-　　　 ノωヽ
+        `      (⌒⌒⌒)  ドカーン
+       |    |
+       |    |
+      (;´Д\`)＿
+      <(    )ノ
+       ノωヽ
 `,
-        `　　　(⌒⌒⌒)　ドカーン
-　　　 |　　|
-　　　 |　　|
-　　　(;´Д\`)＿　ピザおまち
-　　　<(　　)ノ
-　　　 ノωヽ
-　　　 川川
+        `      (⌒⌒⌒)  ドカーン
+       |    |
+       |    |
+      (;´Д\`)＿  ピザおまち
+      <(    )ノ
+       ノωヽ
+       川川
 
 `
     ]
@@ -5168,7 +5168,7 @@ function executeKurohigeStab(index, playerNum) {
         if (playerNum === myPlayerNum) {
             kurohigeMessageEl.textContent = 'セーフ！ヽ(´ー｀)ノ';
         } else {
-            kurohigeMessageEl.textContent = '貴殿の番です！';
+            kurohigeMessageEl.textContent = '貴殿の番だ！';
         }
 
         // ターン交代
@@ -5182,7 +5182,7 @@ function updateKurohigeUI() {
     if (!kurohigeGameOver) {
         const isMyTurn = (kurohigeCurrentPlayer === myPlayerNum);
         printTurnStatus(isMyTurn);
-        kurohigePersonEl.textContent = '　 　(;´Д`)　 HELP!\n';
+        kurohigePersonEl.textContent = '      (;´Д\`)   HELP!\n';
     } else {
         statusMessage.textContent = "ゲーム終了！";
         statusMessage.classList.remove('animate-pulse');
@@ -5205,13 +5205,13 @@ function renderKurohige() {
         return `<span class="text-yellow-300 ${cursor}" onclick="stabKurohige(${idx})">${defaultStr}</span>`;
     };
 
-    const barrel = `　 |￣￣￣￣￣￣|
-　|　${getHole(0, '}}')}　${getHole(1, '||')}　${getHole(2, '{{')}　|
-　|＝＝＝＝＝＝＝|
-　|　${getHole(3, '}}')}　${getHole(4, '||')}　${getHole(5, '{{')}　|
-　|＝＝＝＝＝＝＝|
-　|　${getHole(6, '}}')}　${getHole(7, '||')}　${getHole(8, '{{')}　|
-　 |　　　　　　|`;
+    const barrel = `   |￣￣￣￣￣￣|
+  |  ${getHole(0, '}}')}  ${getHole(1, '||')}  ${getHole(2, '{{')}  |
+  |==============|
+  |  ${getHole(3, '}}')}  ${getHole(4, '||')}  ${getHole(5, '{{')}  |
+  |==============|
+  |  ${getHole(6, '}}')}  ${getHole(7, '||')}  ${getHole(8, '{{')}  |
+   |            |`;
 
     kurohigeBarrelEl.innerHTML = barrel;
 }

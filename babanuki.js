@@ -5207,9 +5207,9 @@ function renderKurohige() {
 
     const barrel = `　 |￣￣￣￣￣￣|
 　|　${getHole(0, '}}')}　${getHole(1, '||')}　${getHole(2, '{{')}　|
-　|〓〓〓〓〓〓〓|
+　|＝＝＝＝＝＝＝|
 　|　${getHole(3, '}}')}　${getHole(4, '||')}　${getHole(5, '{{')}　|
-　|〓〓〓〓〓〓〓|
+　|＝＝＝＝＝＝＝|
 　|　${getHole(6, '}}')}　${getHole(7, '||')}　${getHole(8, '{{')}　|
 　 |　　　　　　|`;
 

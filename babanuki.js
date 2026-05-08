@@ -2795,9 +2795,9 @@ function printTurnStatus(myTurn = true) {
 
         // プレイヤー名を当てはめて表示 (観戦中はどちらのターンでも目立たせる)
         if (isHostTurn) {
-            statusMessage.textContent = `${spectatorHostName} のターン`;
+            statusMessage.textContent = `${spectatorHostName} の番`;
         } else {
-            statusMessage.textContent = `${spectatorGuestName} のターン`;
+            statusMessage.textContent = `${spectatorGuestName} の番`;
         }
 
         statusMessage.classList.remove('animate-pulse', 'text-white');
@@ -2807,11 +2807,11 @@ function printTurnStatus(myTurn = true) {
     }
 
     if (myTurn) {
-        statusMessage.textContent = "貴殿のターン！";
+        statusMessage.textContent = "貴殿の番だ！";
         statusMessage.classList.remove('animate-pulse', 'text-white');
         statusMessage.classList.add('text-yellow-400', 'animate-bounce');
     } else {
-        statusMessage.textContent = "相手のターン…";
+        statusMessage.textContent = "相手の番…";
         statusMessage.classList.remove('text-yellow-400', 'animate-bounce');
         statusMessage.classList.add('animate-pulse', 'text-white');
     }
@@ -3295,13 +3295,13 @@ function showRematchPrompt(isWinner) {
     if (isWinner) {
         playWinSound(); // 勝利音
         if (currentGameType === 'babanuki') {
-            resultMessage = `${myName} が ${opponentName} にババ抜きで勝利しました！`;
+            resultMessage = `${myName} が ${opponentName} にババ抜きで勝ちました！`;
         } else if (currentGameType === 'quoridor') {
-            resultMessage = `${myName} が ${opponentName} にコリドールで勝利しました！`;
+            resultMessage = `${myName} が ${opponentName} にコリドールで勝ちました！`;
         } else if (currentGameType === 'othello') {
-            resultMessage = `${myName} が ${opponentName} におまこんリバーシ (オセロ)で勝利しました！`;
+            resultMessage = `${myName} が ${opponentName} におまこんリバーシ (オセロ)で勝ちました！`;
         } else if (currentGameType === 'buta') {
-            resultMessage = `${myName} が ${opponentName} にぶたのしっぽで勝利しました！`;
+            resultMessage = `${myName} が ${opponentName} にぶたのしっぽで勝ちました！`;
         } else if (currentGameType === 'kurohige') {
             resultMessage = `${myName} が ${opponentName} にくうはく危機一髪で勝ちました！`;
         }
@@ -3313,7 +3313,7 @@ function showRematchPrompt(isWinner) {
     const title = isWinner ? '貴殿の勝ちヽ(´ー｀)ノ' : '貴殿の負け(^Д^)';
     const body = 'もう一度対戦しますか？';
     const buttonEmoticon = isWinner ? '(^Д^)' : '(;`Д´)';
-    const voiceMessage = isWinner ? 'ぎゃははは！プーックス！' : 'ぐぬぬっ！悔しいっ！';
+    const voiceMessage = isWinner ? 'ぎゃははは！プーックス！' : 'ぐぬぬっ！';
     const rate = isWinner ? 1.2 : 0.8;
     const pitch = isWinner ? 1.2 : 0.8;
 
@@ -3363,7 +3363,7 @@ function sendRematchRequest() {
     } else {
         // 相手の応答待ち
         showModal(modalTitle.textContent,
-            '再戦の意思を相手に伝えました。相手の返答を待っています...', [
+            '再戦の意思を伝えました。相手の返答を待っています...', [
             {
                 text: 'キャンセル',
                 class: 'bg-gray-500',
@@ -3386,7 +3386,7 @@ function handleRematchRequest() {
         // 自分がまだ選択していない場合 (モーダルが表示されているはず)
         // モーダルの本文を更新して、相手が同意したことを伝える
         if (modalOverlay.classList.contains('hidden') === false) {
-            modalBody.textContent = '相手は再戦を希望しています。どうする？';
+            modalBody.textContent = '相手が再戦を希望しています。どうする？';
         }
     }
 }
@@ -3398,7 +3398,7 @@ function handleRematchDecline() {
     // 相手が再戦を拒否した
     opponentRematchRequested = false;
     // カウントダウン処理へ
-    startExitCountdown('ゲーム終了', '再戦は不成立となりました。ロビーに戻ります。');
+    startExitCountdown('ゲーム終了', '再戦は不成立となりました。待合室に戻ります。');
 }
 
 /**
@@ -5111,7 +5111,7 @@ function handleKurohigeData(msg) {
             if (kurohigeCurrentPlayer === myPlayerNum) {
                 kurohigeMessageEl.textContent = '入れる穴を選べ！';
             } else {
-                kurohigeMessageEl.textContent = '敵が穴を選んでます……。';
+                kurohigeMessageEl.textContent = '敵が穴を選び中……。';
             }
             updateKurohigeUI();
             break;

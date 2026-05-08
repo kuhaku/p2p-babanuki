@@ -2991,6 +2991,7 @@ function handleBabanukiData(msg) {
         // (ゲストが) ホストから手札を受け取る
         case 'deal':
             myHand = discardPairsFromHand(msg.hand, true); // 初期ペアを捨てる
+            shuffle(myHand); // ゲスト側でもソート状態を崩すためにシャッフル
 
             // 手札が0枚なら自分の勝ち
             if (myHand.length === 0) {
@@ -3240,8 +3241,10 @@ function initializeBabanukiGame() {
 
     // 初期ペアを捨てる
     myHand = discardPairsFromHand(hostHand, true); // ホストの自分の手札
-    const guestInitialHand = discardPairsFromHand(guestHand, true); // ゲストの初期手札
+    shuffle(myHand); // ★追加: ソート状態を崩すためにシャッフル
 
+    const guestInitialHand = discardPairsFromHand(guestHand, true); // ゲストの初期手札
+    shuffle(guestInitialHand); // ゲストの手札も送信前にシャッフル
     // 相手(ゲスト)の手札が0枚なら相手の勝ち
     if (guestInitialHand.length === 0) {
         // dealメッセージはゲストがゲーム開始を認識するために必要
@@ -3591,15 +3594,13 @@ function handleCardDrawn(card) {
 
     // JOKER以外のカードが引かれた場合のみペアをチェック
     if (card.rank !== 'JOKER') {
-        // 引いたカード（card）以外で、同じランクのカードを探す
         const matchingCardIndex = myHand.findIndex(c => c.rank === card.rank && c !== card);
 
         if (matchingCardIndex > -1) {
-            // ペアが見つかった
             const card1 = card;
             const card2 = myHand[matchingCardIndex];
 
-            matchingCardDisplay = card2.display; // ペアの表示名を記録
+            matchingCardDisplay = card2.display;
 
             // 手札からペアを削除 (引いたカードと、見つけたペアを削除)
             myHand = myHand.filter(c => c !== card1 && c !== card2);
@@ -3609,6 +3610,9 @@ function handleCardDrawn(card) {
             playPairSound();
         }
     }
+
+    // 引いたカードが特定されないよう、手札全体をシャッフルする
+    shuffle(myHand);
 
     // ドロー結果をdrawnCardMessageElに設定
     drawnCardMessageEl.classList.remove('text-yellow-300');
@@ -3652,13 +3656,8 @@ function handleCardDrawn(card) {
  */
 function renderMyHand() {
     myHandContainer.innerHTML = '';
-    // 描画用の手札コピーを作成
-    const displayHand = [...myHand];
 
-    // 描画用の手札をシャッフル
-    // (myHand 本体の順序は変更しない)
-    // シャッフルした displayHand を描画
-    shuffle(displayHand).forEach((card, index) => {
+    myHand.forEach((card, index) => {
         const cardEl = document.createElement('div');
         cardEl.className = `card ${card.color} ${card.rank === 'JOKER' ? 'joker' : ''}`;
         cardEl.textContent = card.display;

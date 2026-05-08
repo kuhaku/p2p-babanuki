@@ -3302,6 +3302,8 @@ function showRematchPrompt(isWinner) {
             resultMessage = `${myName} が ${opponentName} におまこんリバーシ (オセロ)で勝利しました！`;
         } else if (currentGameType === 'buta') {
             resultMessage = `${myName} が ${opponentName} にぶたのしっぽで勝利しました！`;
+        } else if (currentGameType === 'kurohige') {
+            resultMessage = `${myName} が ${opponentName} にくうはく危機一髪で勝ちました！`;
         }
         sendLobbyNotification(resultMessage);  // ロビーチャットに結果を通知
     } else {

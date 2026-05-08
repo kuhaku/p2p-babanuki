@@ -2644,8 +2644,14 @@ async function showActiveLobbyUsersInGame(presenceState) {
             if (presences.length > 0) {
                 const presence = presences[0];
 
+                // 自分自身は表示しない
                 if (presence.user_id === userId) {
-                    continue; // 自分は表示しない
+                    continue;
+                }
+
+                // 現在の対戦相手も絶対に表示しない（通信ラグ対策）
+                if (opponentUserId && presence.user_id === opponentUserId) {
+                    continue;
                 }
 
                 if (!presence.name || !presence.user_id) {
@@ -2653,14 +2659,17 @@ async function showActiveLobbyUsersInGame(presenceState) {
                     continue; // 無効なデータはスキップ
                 }
 
+                // プレイ中のユーザーでなければユーザー一覧に加える
                 if (presence.user_status !== 'gaming') {
-                    // プレイ中のユーザーでなければユーザー一覧に加える
                     playerNames.push(presence.name);
                 }
             }
         }
+
         const listEl = document.getElementById('lobby-user-list');
         const countEl = document.getElementById('lobby-user-count');
+
+        if (!listEl || !countEl) return; // 要素がない場合はスキップ
 
         listEl.innerHTML = '';
         playerNames.forEach(playerName => {
@@ -2673,7 +2682,8 @@ async function showActiveLobbyUsersInGame(presenceState) {
         countEl.textContent = `人数: ${playerNames.length}名`;
     } catch (e) {
         console.error('ロビー情報取得エラー:', e);
-        document.getElementById('lobby-user-count').textContent = '取得に失敗しました';
+        const countEl = document.getElementById('lobby-user-count');
+        if (countEl) countEl.textContent = '取得に失敗しました';
     }
 }
 

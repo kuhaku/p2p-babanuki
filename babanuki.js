@@ -1640,7 +1640,7 @@ function checkAndShowSpectatorResult(state) {
         } else if (state.o_currentPlayer === 2) {
             resultMessage = `${spectatorGuestName} がおまこんリバーシで大勝利！`;
         } else {
-            resultMessage = `おまこんリバーシは引き分けでした！`;
+            resultMessage = `おまこんリバーシは引き分け！`;
         }
 
     } else if (state.gameType === 'buta' && state.gameOver) {
@@ -1650,7 +1650,7 @@ function checkAndShowSpectatorResult(state) {
         } else if (state.butaP2Penalty < state.butaP1Penalty) {
             resultMessage = `${spectatorGuestName} がぶたのしっぽで大勝利！`;
         } else {
-            resultMessage = `ぶたのしっぽは引き分けでした！`;
+            resultMessage = `ぶたのしっぽは引き分け！`;
         }
 
     } else if (state.gameType === 'babanuki' && state.gameOver) {
@@ -1675,8 +1675,8 @@ function checkAndShowSpectatorResult(state) {
         playDealSound(); // チャイム代わりに音を鳴らす
 
         showModal('観戦したゲームが終了しました', resultMessage, [
-            { text: '盤面を見る', class: 'bg-gray-500', action: hideModal },
-            { text: 'ロビーに戻る', class: 'bg-green-600', action: exitToLobby }
+            { text: '勝負結果を見る', class: 'bg-gray-500', action: hideModal },
+            { text: '待合室に戻る', class: 'bg-green-600', action: exitToLobby }
         ]);
     }
 }

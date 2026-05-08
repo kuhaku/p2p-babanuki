@@ -154,29 +154,31 @@ let kurohigeBombIndex = -1;
 let kurohigeCurrentPlayer = 1; // 1: ホスト, 2: ゲスト
 let kurohigeGameOver = false;
 let kurohigeAnimating = false;
+let kurohigeAnimationType = 0;
 
 // 負けた時の文字絵
 const KUROHIGE_ANIMATION_FRAMES = [
-    `　　　 ！？
+    [
+        `　　　 ！？
 　 　(;´Д\`)
 `,
 
-    `　 ヽ(;´Д\`)ノ え！？
+        `　 ヽ(;´Д\`)ノ え！？
 　　　(　　 )
 `,
 
-    `　 ヽ(;´Д\`)ノ あっ！
+        `　 ヽ(;´Д\`)ノ あっ！
 　　　(　　 )
 　　　ノωヽ
 `,
 
-    `　 ヽ(;´Д\`)ノ　うわああ！
+        `　 ヽ(;´Д\`)ノ　うわああ！
 　　　(　　 )
 　　　ノωヽ
 　　　 川川
 
 `,
-    `　　　＿△＿
+        `　　　＿△＿
 　 　(;´人\`)　南無
 　　　(　　)
 　　　ノωヽ
@@ -184,7 +186,72 @@ const KUROHIGE_ANIMATION_FRAMES = [
 
 
 `
+    ],
+    [
+        `　　　 ！？
+　 　(;´Д\`)
+`,
+        `　　　 |　　|
+　　　(;´Д\`)
+`,
+        `　　　(⌒⌒⌒)
+　　　 |　　|
+　　　(;´Д\`)
+`,
+        `　　(⌒⌒⌒)
+　　 ＼　　＼
+　　　(;´Д\`)
+`,
+        ` (⌒⌒⌒)
+　＼　　＼
+　　＼　　＼
+　　　(;´Д\`)
+`,
+        `　(⌒⌒⌒)
+　 ＼　　＼
+　　 ＼　　＼
+　　　(;´Д\`)
+`,
+        `　　　　(⌒⌒⌒)
+　　　 /　　/
+　　　/　　/
+　　　(;´Д\`)
+`,
+        `　　　　　　(⌒⌒⌒)
+　　　　　／　　／
+　　　　／　　／
+　　　(;´Д\`)
+`,
+        `　　　(⌒⌒⌒)　ドカーン
+　　　 |　　|
+　　　 |　　|
+　　　(;´Д\`)
+`,
+        `　　　(⌒⌒⌒)　ドカーン
+　　　 |　　|
+　　　 |　　|
+　　　(;´Д\`)＿
+　　　<(　　)ノ
+`,
+        `　　　(⌒⌒⌒)　ドカーン
+　　　 |　　|
+　　　 |　　|
+　　　(;´Д\`)＿
+　　　<(　　)ノ
+　　　 ノωヽ
+`,
+        `　　　(⌒⌒⌒)　ドカーン
+　　　 |　　|
+　　　 |　　|
+　　　(;´Д\`)＿　ピザおまち
+　　　<(　　)ノ
+　　　 ノωヽ
+　　　 川川
+
+`
+    ]
 ];
+
 
 function escapeChar(str) {
     return str.replace(/&/g, '&amp;').replace(/</g, '&#60;').replace(/>/g, '&#62;')
@@ -5004,12 +5071,18 @@ function initKurohigeGame() {
     kurohigeGameOver = false;
     gameOver = false;
     kurohigeAnimating = false;
+    if (Math.random() > 0.2) {
+        kurohigeAnimationType = 0;
+    } else {
+        kurohigeAnimationType = 1;
+    }
 
     // ゲストへ状態を送信
     sendData({
         type: 'kurohige-init',
         bombIndex: kurohigeBombIndex,
-        currentPlayer: kurohigeCurrentPlayer
+        currentPlayer: kurohigeCurrentPlayer,
+        kurohigeAnimationType: kurohigeAnimationType
     });
 
     // ターンの状態に合わせて開始メッセージを出し分ける
@@ -5031,6 +5104,7 @@ function handleKurohigeData(msg) {
             kurohigeGameOver = false;
             gameOver = false;
             kurohigeAnimating = false;
+            kurohigeAnimationType = msg.kurohigeAnimationType;
             // ターンの状態に合わせて開始メッセージを出し分ける
             if (kurohigeCurrentPlayer === myPlayerNum) {
                 kurohigeMessageEl.textContent = '入れる穴を選べ！';
@@ -5144,11 +5218,11 @@ function renderKurohige() {
 function playKurohigeAnimation(explodedPlayerNum) {
     let frame = 0;
     const animInterval = setInterval(() => {
-        kurohigePersonEl.innerHTML = KUROHIGE_ANIMATION_FRAMES[frame];
+        kurohigePersonEl.innerHTML = KUROHIGE_ANIMATION_FRAMES[kurohigeAnimationType][frame];
         if (isHost) broadcastGameState(); // アニメーションのコマも観戦者に同期
         frame++;
 
-        if (frame >= KUROHIGE_ANIMATION_FRAMES.length) {
+        if (frame >= KUROHIGE_ANIMATION_FRAMES[kurohigeAnimationType].length) {
             clearInterval(animInterval);
             kurohigeAnimating = false;
 

@@ -13,7 +13,11 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Tone.js CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+    <!-- Matter.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
     <!-- ゲームスクリプト -->
+    <script src="mojie.js"></script>
+    <script src="kurohige.js"></script>
     <script src="babanuki.js"></script>
     <style>
         /* フォント設定 */
@@ -25,7 +29,7 @@
         }
 
         body {
-            font-family: "MS Gothic", "Inter", "Hiragino Kaku Gothic ProN", sans-serif;
+            font-family: 'MS Gothic', 'BIZ UDGothic', ui-monospace, monospace;
             color: white;
             /* スマホでの操作性向上 */
             touch-action: manipulation;
@@ -180,7 +184,33 @@
             background-color: #f0d9b5;
         }
 
-        #kurohige-display {
+        /* あやしいタワーバトル用スタイル */
+        .stb-aa-element {
+            position: absolute;
+            white-space: pre;
+            font-family: 'MS Gothic', 'BIZ UDGothic', monospace;
+            font-size: 16px;
+            line-height: 1.2;
+            color: #fff;
+            /* ネオン風の少し控えめな縁取り */
+            text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000,
+                0px 2px 4px rgba(0, 255, 255, 0.5);
+            transform-origin: center center;
+            transform: translate(-50%, -50%);
+            user-select: none;
+            pointer-events: none;
+        }
+
+        .stb-preview-content {
+            font-family: 'MS Gothic', 'BIZ UDGothic', monospace;
+            text-align: left;
+        }
+
+        .stb-btn-drop {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .mojie {
             font-family: 'MS Gothic', 'BIZ UDGothic', ui-monospace, monospace;
         }
 
@@ -235,20 +265,32 @@
             </button>
             <div class="border-t border-gray-300 py-2 my-3">
                 <h2 class="my-1 py-1 text-white">このサイトについて</h2>
-                <p class="text-white">内緒の秘密のP2P通信によるババ抜きやリバーシなどで金銭を介さずに大人の関係を育むババ活できるサイトです。</p>
+                <p class="text-white">内緒の秘密のP2P通信によって金銭を介さずに遊びながら大人の関係を育むババ活サイトです。</p>
             </div>
             <div class="border-t border-gray-300 py-2 my-3">
                 <h2 class="my-1 py-1 text-white">お知らせ</h2>
-                <ul>
-                    <li class="text-white">2026/5/6: くうはく危機一髪ゲームを追加しましたヽ(´ー｀)ノ</li>
-                    <li class="text-white">2026/3/10: 観戦機能を追加しました(´ ー｀)ｼﾞﾗｼﾞﾛ</li>
-                    <li class="text-white">2026/3/9: ぶたのしっぽを追加しましたヽ(´ ー｀)ノ</li>
-                    <li class="text-white">2026/3/6: おまこんリバーシのプレイ時間を短くして気軽に遊べるようにルールを変更しましたヽ(´ ー｀)ノ</li>
-                    <li class="text-white">2026/3/3: おまこんリバーシを追加しましたヽ(´ ー｀)ノ</li>
-                    <li class="text-white">2026/1/29: しばらく遊べなくなってた問題を解消しましたヽ(´ ー｀)ノ</li>
-                    <li class="text-white">2025/11/14: コリドールを追加しましたヽ(´ー｀)ノ</li>
-                    <li class="text-white">2025/11/13: ファイル共有機能追加ヽ(´ー｀)ノ</li>
-                    <li class="text-white">2025/11/6: 初公開ヽ(´ー｀)ノ</li>
+                <ul class="text-white">
+                    <li>2026/5/22: あやしいタワーバトルを追加しましたヽ(´ー｀)ノ</li>
+                    <li>2026/5/6: くうはく危機一髪ゲームを追加しましたヽ(´ー｀)ノ</li>
+                    <li>2026/3/10: 観戦機能を追加しました(´ ー｀)ｼﾞﾗｼﾞﾛ</li>
+                    <li>2026/3/9: ぶたのしっぽを追加しましたヽ(´ ー｀)ノ</li>
+                    <li>2026/3/6: おまこんリバーシのプレイ時間を短くして気軽に遊べるようにルールを変更しましたヽ(´ ー｀)ノ</li>
+                    <li>2026/3/3: おまこんリバーシを追加しましたヽ(´ ー｀)ノ</li>
+                    <li>2026/1/29: しばらく遊べなくなってた問題を解消しましたヽ(´ ー｀)ノ</li>
+                    <li>2025/11/14: コリドールを追加しましたヽ(´ー｀)ノ</li>
+                    <li>2025/11/13: ファイル共有機能追加ヽ(´ー｀)ノ</li>
+                    <li>2025/11/6: 初公開ヽ(´ー｀)ノ</li>
+                </ul>
+            </div>
+            <div class="border-t border-gray-300 py-2 my-3">
+                <h2 class="my-1 py-1 text-white">現在ヤれるゲーム (プレイ時間が短い順)</h2>
+                <ul class="text-white">
+                    <li>くうはく危機一髪 (黒*危機一発系)</li>
+                    <li>ババ抜き</li>
+                    <li>あやしいタワーバトル</li>
+                    <li>ぶたのしっぽ</li>
+                    <li>おまこんリバーシ (オセロ系)</li>
+                    <li>コリドール</li>
                 </ul>
             </div>
         </div>
@@ -588,7 +630,7 @@
 
                     <div class="flex justify-center items-center my-8">
                         <pre id="kurohige-display"
-                            class="text-white text-xl leading-snug cursor-default select-none"><span id="kurohige-person"></span><span id="kurohige-barrel"></span></pre>
+                            class="text-white text-xl leading-snug cursor-default select-none mojie"><span id="kurohige-person"></span><span id="kurohige-barrel"></span></pre>
                     </div>
 
                     <div id="kurohige-message" class="text-center text-white md:text-lg font-semibold my-4 min-h-[30px]"
@@ -599,22 +641,80 @@
                         <h3 id="kurohige-my-name" class="text-white md:text-lg font-semibold text-center">自分</h3>
                     </div>
                 </div>
+                <!-- あやしいタワーバトル -->
+                <div id="stb-ui" class="hidden">
+                    <div
+                        class="flex justify-between items-center mb-2 p-2 bg-green-900 rounded-lg shadow-md border border-green-700 min-h-[48px]">
+                        <h3 id="stb-player1-name"
+                            class="text-white lg:text-sm text-xs font-semibold text-left w-1/2 truncate px-2">甲</h3>
+                        <h3 id="stb-player2-name"
+                            class="text-white lg:text-sm text-xs font-semibold text-right w-1/2 truncate px-2">乙</h3>
+                    </div>
+
+                    <div id="stb-game-container"
+                        class="relative w-full max-w-xl mx-auto aspect-square bg-gradient-to-b from-gray-800 to-gray-950 border-4 border-green-700 rounded-lg overflow-hidden shadow-2xl touch-none">
+
+                        <div
+                            class="absolute top-3 right-3 bg-gray-900/80 border border-green-500 p-2 rounded text-center shadow-lg z-40 backdrop-blur-sm min-w-[60px]">
+                            <div class="text-[10px] text-gray-400 font-bold mb-1 leading-none tracking-wider">NEXT</div>
+                            <div id="stb-preview-content"
+                                class="text-white text-[11px] whitespace-pre leading-tight text-left inline-block">
+                            </div>
+                        </div>
+                        <div id="stb-world-wrapper" class="absolute top-0 left-0 w-[600px] h-[600px] origin-top-left">
+                            <div id="stb-canvas-container"
+                                class="absolute inset-0 z-10 pointer-events-none opacity-50 hidden"></div>
+                            <div id="stb-aa-layer" class="absolute inset-0 z-20 pointer-events-none overflow-hidden">
+                            </div>
+
+                            <div id="stb-ground-element"
+                                class="absolute bg-amber-900 border-2 border-amber-950 border-t-4 border-t-green-600 shadow-md z-15 rounded-t"
+                                style="left: 50px; top: 460px; width: 500px; height: 40px;"></div>
+                        </div>
+
+                        <div id="stb-controls"
+                            class="absolute bottom-0 left-0 w-full bg-gray-900/90 p-2 flex justify-center items-center gap-1 sm:gap-2 z-30 backdrop-blur-md border-t border-indigo-800">
+                            <div class="flex flex-col items-center">
+                                <span class="text-[10px] text-gray-400 mb-1">移動</span>
+                                <div class="flex gap-1">
+                                    <button id="stb-btn-left"
+                                        class="bg-gray-700 hover:bg-gray-600 active:bg-gray-500 text-white w-10 h-10 sm:w-12 sm:h-12 text-2xl sm:text-3xl flex justify-center items-center rounded shadow border border-gray-600 select-none">◀</button>
+                                    <button id="stb-btn-right"
+                                        class="bg-gray-700 hover:bg-gray-600 active:bg-gray-500 text-white w-10 h-10 sm:w-12 sm:h-12 text-2xl sm:text-3xl flex justify-center items-center rounded shadow border border-gray-600 select-none">▶</button>
+                                </div>
+                            </div>
+
+                            <button id="stb-btn-drop"
+                                class="bg-gradient-to-b from-red-500 to-red-700 hover:from-red-400 hover:to-red-600 active:scale-95 text-white flex-grow h-12 font-bold text-sm sm:text-lg rounded-lg shadow-lg border border-red-400 select-none mx-1">おとす</button>
+
+                            <div class="flex flex-col items-center">
+                                <span class="text-[10px] text-gray-400 mb-1">回転</span>
+                                <div class="flex gap-1">
+                                    <button id="stb-btn-rot-ccw"
+                                        class="bg-gray-700 hover:bg-gray-600 active:bg-gray-500 text-white w-10 h-10 sm:w-12 sm:h-12 text-2xl sm:text-3xl flex justify-center items-center rounded shadow border border-gray-600 select-none">↺</button>
+                                    <button id="stb-btn-rot-cw"
+                                        class="bg-gray-700 hover:bg-gray-600 active:bg-gray-500 text-white w-10 h-10 sm:w-12 sm:h-12 text-2xl sm:text-3xl flex justify-center items-center rounded shadow border border-gray-600 select-none">↻</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- 共通UI (チャット・ファイル送信・ロビー情報) -->
                 <div id="common-right-column" class="mt-2 md:mt-0">
                     <h3 class="md:text-lg font-semibold text-white mb-2">対戦部屋チャット</h3>
                     <div class="my-2 flex justify-center md:block">
                         <button
-                            class="bg-red-900 text-white font-bold lg:text-base md:text-sm text-xs md:mx-3 mx-1 md:px-2 px-1 py-1 rounded-md hover:bg-red-950 active:bg-white active:text-red-950 transition"
+                            class="bg-red-900 text-white font-bold lg:text-base md:text-sm text-xs md:mx-3 mx-1 md:px-2 px-1 py-1 rounded-md hover:bg-red-950 active:bg-white active:text-red-950 transition mojie"
                             onclick="sendReaction('ヽ(;`Д´)ﾉ');">ヽ(;`Д´)ﾉ</button>
                         <button
-                            class="bg-green-900 text-white font-bold lg:text-base md:text-sm text-xs md:mx-3 mx-1 md:px-2 px-1 py-1 rounded-md hover:bg-green-950 active:bg-white active:text-green-950 transition"
+                            class="bg-green-900 text-white font-bold lg:text-base md:text-sm text-xs md:mx-3 mx-1 md:px-2 px-1 py-1 rounded-md hover:bg-green-950 active:bg-white active:text-green-950 transition mojie"
                             onclick="sendReaction('(;´Д`)');">(;´Д`)</button>
                         <button
-                            class="bg-violet-900 text-white font-bold lg:text-base md:text-sm text-xs md:mx-3 mx-1 md:px-2 px-1 py-1 rounded-md hover:bg-violet-950 active:bg-white active:text-violet-950 transition"
+                            class="bg-violet-900 text-white font-bold lg:text-base md:text-sm text-xs md:mx-3 mx-1 md:px-2 px-1 py-1 rounded-md hover:bg-violet-950 active:bg-white active:text-violet-950 transition mojie"
                             onclick="sendReaction('ヽ(´ー｀)ノ');">ヽ(´ー｀)ノ</button>
                         <button
-                            class="bg-yellow-600 text-white font-bold lg:text-base md:text-sm text-xs md:mx-3 mx-1 md:px-2 px-1 py-1 rounded-md hover:bg-yellow-950 active:bg-white active:text-yellow-950 transition"
+                            class="bg-yellow-600 text-white font-bold lg:text-base md:text-sm text-xs md:mx-3 mx-1 md:px-2 px-1 py-1 rounded-md hover:bg-yellow-950 active:bg-white active:text-yellow-950 transition mojie"
                             onclick="sendReaction('(^Д^)');">(^Д^)</button>
                     </div>
                     <div id="game-chat-messages"
@@ -719,6 +819,17 @@
                     <p>ジョーカーは使用せず、52枚のカードでプレイします。</p>
                 </div>
             </div>
+            <div class="mt-2 pt-2 text-white">
+                <h3 class="underline cursor-pointer"
+                    onclick="document.getElementById('stb-rule').classList.toggle('hidden');">
+                    あやしいタワーバトルのルール ▼</h3>
+                <div id="stb-rule" class="hidden">
+                    <h3 class="py-4 text-xl font-bold text-yellow-400">ルール</h3>
+                    <p>次々に現れる文字絵を土台から落ちないように気をつけながらタワーのように積み上げていくゲームです。</p>
+                    <p>自分のターンのときに文字絵が土台から落ちたら負けとなります。</p>
+                    <p>文字絵回転機能を駆使したり、勝敗判定があやしい実装になっているのを逆手に取ることがツワモノになるコツ。</p>
+                </div>
+            </div>
 
             <!-- モーダル (ダイアログ) -->
             <div id="modal-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center p-2">
@@ -745,6 +856,14 @@
                             class="bg-pink-600 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-pink-700 transition duration-300">
                             ぶたのしっぽ
                         </button>
+                        <button id="game-choice-kurohige"
+                            class="bg-orange-600 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-orange-700 transition duration-300">
+                            くうはく危機一髪
+                        </button>
+                        <button id="game-choice-stb"
+                            class="bg-amber-600 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-amber-700 transition duration-300">
+                            あやしいタワーバトル
+                        </button>
                         <button id="game-choice-othello"
                             class="bg-green-600 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-green-700 transition duration-300">
                             おまこんリバーシ (オセロ)
@@ -753,10 +872,7 @@
                             class="bg-violet-600 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-violet-700 transition duration-300">
                             コリドール
                         </button>
-                        <button id="game-choice-kurohige"
-                            class="bg-orange-600 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-orange-700 transition duration-300">
-                            くうはく危機一髪
-                        </button>
+
                         <hr>
                         <button id="game-choice-cancel"
                             class="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-gray-600 transition duration-300">

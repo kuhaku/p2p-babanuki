@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文字絵ビューワー</title>
+    <!-- フォント -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=BIZ+UDGothic&display=swap');
+
+        body {
+            font-family: 'BIZ+UDGothic';
+            background-color: #004040;
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .viewer-card {
+            background-color: #004040;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            width: 100%;
+            max-width: 600px;
+            text-align: center;
+        }
+
+        .aa-display {
+            background-color: #004040;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            font-family: "BIZ UDGothic", monospace;
+            font-size: 20px;
+            line-height: 1.1;
+            white-space: pre;
+            overflow-x: auto;
+            min-height: 200px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: left;
+        }
+
+        .info {
+            margin-top: 15px;
+            font-size: 0.9em;
+            color: #666;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .controls {
+            margin-top: 25px;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        button#btn-random {
+            background-color: #28a745;
+        }
+
+        button#btn-random:hover {
+            background-color: #218838;
+        }
+    </style>
+    <script src="mojie.js"></script>
+</head>
+
+<body>
+
+    <div class="viewer-card">
+        <h2>文字絵ビューワー</h2>
+
+        <div class="aa-display" id="display-area"></div>
+
+        <div class="info">
+            <span id="info-id">ID: </span>
+            <span id="info-physics"></span>
+            <span id="info-count"></span>
+        </div>
+
+        <div class="controls">
+            <button id="btn-prev">◀ 前</button>
+            <button id="btn-random">ランダム 🎲</button>
+            <button id="btn-next">次 ▶</button>
+        </div>
+    </div>
+
+    <script>
+        let currentIndex = 0;
+
+        // DOM要素の取得
+        const displayArea = document.getElementById('display-area');
+        const infoId = document.getElementById('info-id');
+        const infoPhysics = document.getElementById('info-physics');
+        const infoCount = document.getElementById('info-count');
+
+        // 表示を更新する関数
+        function updateDisplay() {
+            const item = stbMojieDatabase[currentIndex];
+            displayArea.textContent = item.text; // テキストとして流し込む（<pre>タグのような動作）
+            infoId.textContent = `ID: ${item.id}`;
+            infoPhysics.textContent = `Density: ${item.density} | Friction: ${item.friction} | Rest: ${item.restitution}`;
+            infoCount.textContent = `[ ${currentIndex + 1} / ${stbMojieDatabase.length} ]`;
+        }
+
+        // イベントリスナーの設定
+        document.getElementById('btn-prev').addEventListener('click', () => {
+            // 現在のインデックスを1減らす（0未満になったら配列の最後尾にループ）
+            currentIndex = (currentIndex - 1 + stbMojieDatabase.length) % stbMojieDatabase.length;
+            updateDisplay();
+        });
+
+        document.getElementById('btn-next').addEventListener('click', () => {
+            // 現在のインデックスを1増やす（最後尾を超えたら0にループ）
+            currentIndex = (currentIndex + 1) % stbMojieDatabase.length;
+            updateDisplay();
+        });
+
+        document.getElementById('btn-random').addEventListener('click', () => {
+            // 0から配列の長さ-1 までのランダムな整数を生成
+            currentIndex = Math.floor(Math.random() * stbMojieDatabase.length);
+            updateDisplay();
+        });
+
+        // 初回読み込み時の表示
+        updateDisplay();
+    </script>
+</body>
+
+</html>

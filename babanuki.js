@@ -10,7 +10,7 @@ let signalChannel; // Broadcast用 (招待/SDP/ICE交換)
 let opponentUserId = '';
 let opponentName = '';
 let isHost = false; // 招待した側 (ゲームのホスト)
-let userStatus = 'init';  // {init | free | busy | gaming}
+let userStatus = 'free';  // {free | busy | gaming | spectating}
 let isSpectator = false; // 観戦者フラグ
 let spectatorChannel = null; // 観戦機能用状態同期チャンネル
 let spectatorHostName = '';    // 観戦する対戦部屋のホストの名前を保持
@@ -18,6 +18,8 @@ let spectatorGuestName = '';   // 観戦する対戦部屋のゲストの名前�
 let spectatorResultShown = false; // 結果表示済みフラグ
 const SYSTEM_USER_NAME = '通知';
 const SYSTEM_USER_ID = 'system';
+let isUpdatingPresence = false;
+let pendingPresenceUpdate = false;
 
 // ゲーム共通
 let currentGameType = null; // 'babanuki', 'quoridor', 'othello', or 'buta'
@@ -156,101 +158,34 @@ let kurohigeGameOver = false;
 let kurohigeAnimating = false;
 let kurohigeAnimationType = 0;
 
-// 負けた時の文字絵
-const KUROHIGE_ANIMATION_FRAMES = [
-    [
-        `       ！？
-     (;´Д\`)
-`,
 
-        `   ヽ(;´Д\`)ノ え！？
-      (     )
-`,
-
-        `   ヽ(;´Д\`)ノ あっ！
-      (     )
-      ノωヽ
-`,
-
-        `   ヽ(;´Д\`)ノ  うわああ！
-      (     )
-      ノωヽ
-       川川
-
-`,
-        `      ＿△＿
-     (;´人\`)  南無
-      (    )
-      ノωヽ
-       川川
-
-
-`
-    ],
-    [
-        `       ！？
-     (;´Д\`)
-`,
-        `       |    |
-      (;´Д\`)
-`,
-        `      (⌒⌒⌒)
-       |    |
-      (;´Д\`)
-`,
-        `    (⌒⌒⌒)
-     ＼    ＼
-      (;´Д\`)
-`,
-        ` (⌒⌒⌒)
-  ＼    ＼
-    ＼    ＼
-      (;´Д\`)
-`,
-        `  (⌒⌒⌒)
-   ＼    ＼
-     ＼    ＼
-      (;´Д\`)
-`,
-        `        (⌒⌒⌒)
-       /    /
-      /    /
-      (;´Д\`)
-`,
-        `            (⌒⌒⌒)
-          ／    ／
-        ／    ／
-      (;´Д\`)
-`,
-        `      (⌒⌒⌒)  ドカーン
-       |    |
-       |    |
-      (;´Д\`)
-`,
-        `      (⌒⌒⌒)  ドカーン
-       |    |
-       |    |
-      (;´Д\`)＿
-      <(    )ノ
-`,
-        `      (⌒⌒⌒)  ドカーン
-       |    |
-       |    |
-      (;´Д\`)＿
-      <(    )ノ
-       ノωヽ
-`,
-        `      (⌒⌒⌒)  ドカーン
-       |    |
-       |    |
-      (;´Д\`)＿  ピザおまち
-      <(    )ノ
-       ノωヽ
-       川川
-
-`
-    ]
-];
+// --- あやしいタワーバトル (stb) 用ゲーム変数 ---
+let stbEngine, stbRender, stbRunner;
+let stbCurrentAAObj = null;
+let stbCurrentAaData = null; // 現在操作中の文字絵
+let stbNextAaData = null;
+let stbGameOver = false;
+let stbAaBodiesMap = new Map();
+let stbContainerWidth, stbContainerHeight;
+let stbCurrentTurn = 1; // 1 (Host) or 2 (Guest)
+let stbIsMovingLeft = false;
+let stbIsMovingRight = false;
+let stbRestCheckTimeout = null;
+let stbRestCounter = 0; // 完全に静止しているフレーム数を数えるカウンター
+let stbTimeoutCounter = 0; // 落下開始からの経過フレーム数を数えるタイムアウト用カウンター
+const STB_TIMEOUT_FRAMES = 600; // 落下開始から指定フレーム数経過したら強制的に次のターンにする
+let stbSyncThrottle = 0; // P2P通信帯域節約用
+let stbSyncAllCounter = 0; // 全体座標の強制同期用カウンタ
+const stbFontSize = 16;
+const stbCharWidth = stbFontSize * 0.5;
+const stbCharHeight = stbFontSize * 1.2;
+const stbMoveSpeed = 3; // 左右移動の速度 (px/frame)
+let stbIsRotatingCcw = false; // 反時計回りフラグ
+let stbIsRotatingCw = false;  // 時計回りフラグ
+// UI要素
+let stbUI, stbPlayer1Name, stbPlayer2Name, stbPreviewContent;
+let stbGameContainer, stbCanvasContainer, stbAaLayer, stbControls;
+let stbBtnLeft, stbBtnRight, stbBtnDrop, stbBtnRotCcw, stbBtnRotCw;
 
 
 function escapeChar(str) {
@@ -715,6 +650,14 @@ function showScreen(screenName) {
         // ロビーチャットメッセージ送信ボタン設定
         chatSendBtn.onclick = () => sendChatMessage();
         setupLobbyChat(); // ロビーチャットを開始
+
+        // 画面遷移時に強制的に最新のロビー状態を描画する (描画漏れ防止)
+        if (lobbyChannel && lobbyChannel.state === 'joined') {
+            const newState = lobbyChannel.presenceState();
+            renderLobby(newState);
+            showActiveLobbyUsersInGame(newState);
+            showSpectatorsInGame(newState);
+        }
     } else if (screenName === 'game') {
         gameScreen.classList.remove('hidden');
         leaveGameBtn.onclick = () => leaveGame();
@@ -762,6 +705,7 @@ function showGameChoiceModal(targetUserId, targetName) {
     gameChoiceOthelloBtn.onclick = () => sendInvite(targetUserId, targetName, 'othello');
     gameChoiceButaBtn.onclick = () => sendInvite(targetUserId, targetName, 'buta');
     gameChoiceKurohigeBtn.onclick = () => sendInvite(targetUserId, targetName, 'kurohige');
+    gameChoiceStbBtn.onclick = () => sendInvite(targetUserId, targetName, 'stb');
     gameChoiceCancelBtn.onclick = hideGameChoiceModal;
 }
 
@@ -857,18 +801,45 @@ function checkUserName() {
 /**
  * 自分のPresence状態を更新するヘルパー関数
  */
-function updateMyPresence() {
-    if (lobbyChannel && lobbyChannel.state === 'joined') {
-        lobbyChannel.track({
+async function updateMyPresence() {
+    if (!lobbyChannel) return;
+
+    // 現在送信中の場合は、キューに入れて待機
+    if (isUpdatingPresence) {
+        pendingPresenceUpdate = true;
+        return;
+    }
+
+    isUpdatingPresence = true;
+    pendingPresenceUpdate = false;
+
+    try {
+        await lobbyChannel.track({
             name: myName,
             user_id: userId,
             user_status: userStatus,
-            room_id: roomId,             // ルームIDを共有
-            is_host: isHost,             // ホストかどうか
-            game_type: currentGameType,  // プレイ中のゲーム種別
-            opponent_name: opponentName,  // 対戦相手の名前
-            is_spectator: isSpectator  // 観戦者かどうか
+            room_id: roomId,
+            is_host: isHost,
+            game_type: currentGameType,
+            opponent_name: opponentName,
+            is_spectator: isSpectator,
+            // ミリ秒のタイムスタンプを入れることで、
+            // Supabaseの「更新無視（キャッシュ）」を強制的に突破して全員に通知させる
+            updated_at: Date.now()
         });
+
+        // 送信完了後、ローカルの画面も更新
+        if (lobbyChannel.state === 'joined') {
+            renderLobby(lobbyChannel.presenceState());
+        }
+    } catch (e) {
+        console.error("Presence track error:", e);
+    } finally {
+        isUpdatingPresence = false;
+        // 送信中に次の更新依頼が来ていた場合は、少しだけ待って再実行
+        if (pendingPresenceUpdate) {
+            setTimeout(updateMyPresence, 100);
+        }
     }
 }
 
@@ -1112,21 +1083,20 @@ async function initLobby(myName) {
     });
 
     // Presenceイベントの購読
-    lobbyChannel.on('presence', { event: 'sync' }, () => {
+    // 画面更新を確実に行うための共通関数
+    const syncLobbyState = () => {
+        if (!lobbyChannel) return;
         const newState = lobbyChannel.presenceState();
-        showActiveLobbyUsersInGame(newState);  // 対戦中画面
-        showSpectatorsInGame(newState);        // 観戦者リストを更新
-        renderLobby(newState);                 // ロビー画面
-        notifyPlayerChanges(newState);         // 挨拶など
-    });
-    // 誰かが参加した時
-    lobbyChannel.on('presence', { event: 'join' }, ({ key, newPresences }) => {
-        // ハンドリングが難しいのでここで処理しない
-    });
-    // 誰かが退出した時
-    lobbyChannel.on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-        // ハンドリングが難しいのでここで処理しない
-    });
+        showActiveLobbyUsersInGame(newState);  // 対戦中画面のロビーリスト更新
+        showSpectatorsInGame(newState);        // 観戦者リスト更新
+        renderLobby(newState);                 // ロビー画面の更新
+        notifyPlayerChanges(newState);         // 挨拶通知
+    };
+
+    // sync（同期）、join（参加）、leave（退出）のすべてで確実に描画を更新する
+    lobbyChannel.on('presence', { event: 'sync' }, syncLobbyState);
+    lobbyChannel.on('presence', { event: 'join' }, syncLobbyState);
+    lobbyChannel.on('presence', { event: 'leave' }, syncLobbyState);
 
     // チャンネルの購読を開始
     lobbyChannel.subscribe((status) => {
@@ -1249,14 +1219,14 @@ function renderLobby(presenceState) {
 
             let button;
 
-            if (presence.user_status === 'gaming') {
-                if (presence.is_spectator) {
-                    // 観戦中の場合 (クリックで果たし状を送れる)
-                    button = document.createElement('button');
-                    button.textContent = '観戦中の奴に果たし状';
-                    button.className = 'bg-green-600 text-white font-bold md:text-base text-xs py-1 md:px-4 px-2 rounded-md shadow hover:bg-green-700 transition duration-300';
-                    button.onclick = () => showGameChoiceModal(presence.user_id, presence.name);
-                } else if (presence.is_host && presence.room_id) {
+            if (presence.user_status === 'spectating') {
+                // 観戦中の場合 (クリックで果たし状を送れる)
+                button = document.createElement('button');
+                button.textContent = '観戦中の奴に果たし状';
+                button.className = 'bg-green-600 text-white font-bold md:text-base text-xs py-1 md:px-4 px-2 rounded-md shadow hover:bg-green-700 transition duration-300';
+                button.onclick = () => showGameChoiceModal(presence.user_id, presence.name);
+            } else if (presence.user_status === 'gaming') {
+                if (presence.is_host && presence.room_id) {
                     // 対戦中かつホストの場合「観戦する」ボタンを表示
                     button = document.createElement('button');
                     button.textContent = `観戦する`;
@@ -1269,6 +1239,12 @@ function renderLobby(presenceState) {
                     button.className = 'bg-gray-400 text-white font-bold md:text-base text-xs py-1 md:px-4 px-2 rounded-md shadow transition duration-300';
                     button.disabled = "disabled";
                 }
+            } else if (presence.user_status === 'busy') {
+                // 招待中・準備中のユーザーに対する表示
+                button = document.createElement('button');
+                button.textContent = `取り込み中`;
+                button.className = 'bg-gray-400 text-white font-bold md:text-base text-xs py-1 md:px-4 px-2 rounded-md shadow transition duration-300';
+                button.disabled = "disabled";
             } else {
                 // 対戦可能な場合
                 button = document.createElement('button');
@@ -1429,10 +1405,8 @@ async function spectateGame(targetRoomId, gameType, hostName, guestName) {
     spectatorGuestName = guestName;
     spectatorResultShown = false;
 
-    if (userStatus !== 'gaming') {
-        userStatus = 'gaming';
-        updateMyPresence();
-    }
+    userStatus = 'spectating';
+    updateMyPresence();
 
     // チャットと観戦チャンネルのセットアップ
     await setupGameChat(roomId);
@@ -1546,6 +1520,16 @@ function broadcastGameState() {
         state.kurohigeMessage = kurohigeMessageEl.innerHTML;
         state.kurohigeAnimating = kurohigeAnimating;
         state.kurohigePerson = kurohigePersonEl.innerHTML;
+    } else if (currentGameType === 'stb') {
+        state.stbCurrentTurn = stbCurrentTurn;
+        state.gameOver = stbGameOver;
+        const bodies = [];
+        stbAaBodiesMap.forEach((data, id) => {
+            const body = Matter.Composite.get(stbEngine.world, id, 'body');
+            if (body) bodies.push({ id: id, text: data.data.text, pos: body.position, angle: body.angle, offset: data.centerOffset });
+        });
+        state.stbBodies = bodies;
+        state.nextPreview = stbNextAaData ? stbNextAaData.text : '';
     }
 
     spectatorChannel.send({ type: 'broadcast', event: 'state-update', payload: state });
@@ -1613,6 +1597,135 @@ function applyGameStateFromHost(state) {
         }
 
         updateKurohigeUI();
+    } else if (state.gameType === 'stb') {
+        stbPreviewContent.textContent = state.nextPreview;
+        stbCurrentTurn = state.stbCurrentTurn;
+        gameOver = state.gameOver; // 共通フラグ
+        stbGameOver = state.gameOver;
+
+        // 観戦者側での物理エンジン（Render）の自動初期化
+        if (!stbEngine) {
+            stbContainerWidth = 600;
+            stbContainerHeight = 600;
+
+            // 実際のコンテナサイズに合わせてスケールを設定
+            const rect = stbGameContainer.getBoundingClientRect();
+            const scale = rect.width / stbContainerWidth;
+            const wrapper = document.getElementById('stb-world-wrapper');
+            if (wrapper) wrapper.style.transform = `scale(${scale})`;
+
+            stbEngine = Matter.Engine.create();
+            stbRender = Matter.Render.create({
+                element: stbCanvasContainer,
+                engine: stbEngine,
+                options: {
+                    width: stbContainerWidth,
+                    height: stbContainerHeight,
+                    wireframes: false,
+                    background: 'transparent'
+                }
+            });
+            Matter.Render.run(stbRender);
+
+            // 台座（床）の配置
+            const ground = Matter.Bodies.rectangle(300, 480, 500, 40, {
+                isStatic: true,
+                id: 'ground',
+                render: { fillStyle: '#78350f' }
+            });
+            ground.label = 'ground';
+            Matter.Composite.add(stbEngine.world, ground);
+
+            // 物理エンジンのデバッグ表示の hidden を解除
+            // if (stbCanvasContainer) stbCanvasContainer.classList.remove('hidden');
+        }
+
+        // 描画レイヤーのクリア
+        stbAaLayer.innerHTML = '';
+
+        const currentBodies = Matter.Composite.allBodies(stbEngine.world);
+        const receivedIds = [];
+
+        if (state.stbBodies) {
+            state.stbBodies.forEach(b => {
+                receivedIds.push(b.id);
+
+                // 観戦側の世界に、ホストのIDを持った同一オブジェクトがあるか確認
+                let body = currentBodies.find(cb => cb.hostId === b.id);
+
+                if (!body) {
+                    // 存在しない場合は、ホストから送られてきたテキストを解析して同一形状の複合ボディを生成
+                    const lines = b.text.split('\n');
+                    const rowsConfig = calculateStbRowsConfig(b.text);
+                    let maxTotalCols = 0;
+                    lines.forEach(line => {
+                        let lineWidth = 0;
+                        for (let i = 0; i < line.length; i++) lineWidth += getStbCharWidth(line[i]);
+                        if (lineWidth > maxTotalCols) maxTotalCols = lineWidth;
+                    });
+
+                    const totalWidthPx = maxTotalCols * stbCharWidth;
+                    const totalHeightPx = lines.length * stbCharHeight;
+                    const parts = [];
+
+                    rowsConfig.forEach((row, i) => {
+                        if (row.cols <= 0) return;
+                        const w = row.cols * stbCharWidth;
+                        const h = stbCharHeight;
+                        const rowLeft = 300 - totalWidthPx / 2 + row.offset * stbCharWidth;
+                        const rowX = rowLeft + w / 2;
+                        const rowY = 80 - totalHeightPx / 2 + (i + 0.5) * stbCharHeight;
+
+                        const part = Matter.Bodies.rectangle(rowX, rowY, w, h);
+                        parts.push(part);
+                    });
+
+                    body = Matter.Body.create({
+                        parts: parts,
+                        isStatic: true // 観戦側は位置同期のみのため静的化
+                    });
+                    body.hostId = b.id; // ホスト側の識別IDを保持
+
+                    // 当たり判定パーツの着色（半透明ブルー）
+                    body.parts.forEach(part => {
+                        part.render.fillStyle = 'rgba(59, 130, 246, 0.4)';
+                        part.render.strokeStyle = '#60a5fa';
+                        part.render.lineWidth = 1.5;
+                    });
+
+                    Matter.Composite.add(stbEngine.world, body);
+                }
+
+                // ホストの現在座標・角度と同期
+                Matter.Body.setPosition(body, { x: b.pos.x, y: b.pos.y });
+                Matter.Body.setAngle(body, b.angle);
+
+                // アスキーアート文字(HTML)の重ね合わせ描画
+                const aaElem = document.createElement('div');
+                aaElem.className = 'stb-aa-element';
+                aaElem.textContent = b.text;
+                const cos = Math.cos(b.angle);
+                const sin = Math.sin(b.angle);
+                const drawX = b.pos.x + (b.offset.x * cos - b.offset.y * sin);
+                const drawY = b.pos.y + (b.offset.x * sin + b.offset.y * cos);
+                aaElem.style.transform = `translate(-50%, -50%) translate(${drawX}px, ${drawY}px) rotate(${b.angle}rad)`;
+                stbAaLayer.appendChild(aaElem);
+            });
+        }
+
+        // ホスト側で台座から落ちて消滅したボディを、観戦者側の物理世界からも削除
+        currentBodies.forEach(cb => {
+            if (cb.hostId && !receivedIds.includes(cb.hostId)) {
+                Matter.Composite.remove(stbEngine.world, cb);
+            }
+        });
+
+        if (!stbGameOver) {
+            printTurnStatus(stbCurrentTurn === myPlayerNum);
+        } else {
+            statusMessage.textContent = "あやしいタワー崩壊！";
+            statusMessage.classList.remove('animate-pulse');
+        }
     }
 
     // 最後に勝敗判定と結果モーダルの表示チェックを行う
@@ -1667,6 +1780,11 @@ function checkAndShowSpectatorResult(state) {
         // 当たりを引いた方が負けなので、現在のプレイヤーでない方が勝者
         let winner = state.kurohigeCurrentPlayer === 1 ? spectatorGuestName : spectatorHostName;
         resultMessage = `${winner} がくうはく危機一髪で大勝利！`;
+    } else if (state.gameType === 'stb' && state.gameOver) {
+        isGameOver = true;
+        // 最後に操作して崩した方の負け（相手の勝ち）
+        let winner = state.stbCurrentTurn === 1 ? spectatorGuestName : spectatorHostName;
+        resultMessage = `${winner} があやしいタワーバトルで大勝利！`;
     }
 
     // ゲームが終わっていたらモーダルを表示
@@ -1701,8 +1819,8 @@ function showSpectatorsInGame(presenceState) {
     const spectatorBlock = document.getElementById('active-spectators');
     if (!spectatorBlock) return;
 
-    // 自分がゲーム画面にいない場合、またはroomIdがない場合は枠ごと非表示
-    if (userStatus !== 'gaming' || !roomId) {
+    // 自分が対戦・観戦画面にいない場合、またはroomIdがない場合は枠ごと非表示
+    if ((userStatus !== 'gaming' && userStatus !== 'spectating') || !roomId) {
         spectatorBlock.classList.add('hidden');
         return;
     }
@@ -1761,10 +1879,9 @@ function sendInvite(targetUserId, targetName, gameType) {
         gameType: currentGameType // ゲームタイプを追加
     });
 
-    if (userStatus !== 'busy') {
-        userStatus = 'busy';
-        updateMyPresence();
-    }
+    userStatus = 'busy';
+    updateMyPresence();
+
     let gameName = '';
     switch (gameType) {
         case 'babanuki':
@@ -1781,6 +1898,9 @@ function sendInvite(targetUserId, targetName, gameType) {
             break;
         case 'kurohige':
             gameName = 'くうはく危機一髪';
+            break;
+        case 'stb':
+            gameName = 'あやしいタワーバトル';
             break;
     }
     showModal('招待中', `${targetName} を ${gameName} に誘ってます……`, [
@@ -1812,8 +1932,8 @@ function cancelInvite() {
 
 // 6.2 招待受信 (ゲスト)
 function handleInvite(payload) {
-    // 対戦中（自身がプレイヤー）や招待進行中の場合は無視（観戦中はOKとする）
-    if (peerConnection || (userStatus !== 'free' && !isSpectator)) {
+    // 対戦中（自身がプレイヤー）や招待進行中の場合は無視（観戦中 = 'spectating' はOKとする）
+    if (peerConnection || (userStatus !== 'free' && userStatus !== 'spectating')) {
         sendSignal({
             type: 'reject',
             targetUserId: payload.senderUserId, // ホスト宛て
@@ -1828,10 +1948,8 @@ function handleInvite(payload) {
     currentGameType = payload.gameType; // ゲームタイプをセット
     myPlayerNum = 2; // ゲストはPlayer 2
 
-    if (userStatus !== 'busy') {
-        userStatus = 'busy';
-        updateMyPresence();
-    }
+    userStatus = 'busy';
+    updateMyPresence();
 
     // 招待受信音を鳴らす
     playInviteSound();
@@ -1852,6 +1970,9 @@ function handleInvite(payload) {
             break;
         case 'kurohige':
             gameName = 'くうはく危機一髪';
+            break;
+        case 'stb':
+            gameName = 'あやしいタワーバトル';
             break;
     }
     showModal('挑戦者現る！', `${payload.senderName}から ${gameName} のお誘いがきました`, [
@@ -1886,10 +2007,9 @@ function rejectInvite(targetUserId) {
 // 6.4 ホストが招待拒否を受信したとき
 function handleReject(payload) {
     resetGameVariables();
-    if (userStatus !== 'free') {
-        userStatus = "free";
-        updateMyPresence();
-    }
+
+    userStatus = "free";
+    updateMyPresence();
 
     const reasonText = payload.reason === 'busy' ? '相手は現在取り込み中です。' : '相手に拒否されました。';
     showModal('招待失敗', reasonText, [
@@ -1904,17 +2024,19 @@ function handleInviteCancel(payload) {
     if (modalOverlay.classList.contains('hidden') === false) {
         hideModal();
     }
-    // 自分が招待を受けて 'busy' 状態であり、まだゲームが始まっていない（peerConnectionがない）場合のみ処理
+    // 自分が招待を受けて 'busy' 状態であり、まだゲームが始まっていない場合のみ処理
     if (userStatus === 'busy' && !peerConnection && opponentUserId === payload.senderUserId) {
+
+        // リセットする前に相手の名前を退避しておく
+        const cancelerName = opponentName;
+
         // 自分の状態をリセット
         resetGameVariables();
-        if (userStatus !== 'free') {
-            userStatus = "free";
-            updateMyPresence();
-        }
+        userStatus = "free"; // if文を外して確実に更新
+        updateMyPresence();
 
         // 招待モーダルを閉じて、キャンセル通知モーダルを表示
-        showModal('招待キャンセル', `${opponentName} が招待をブッチしました`, [
+        showModal('招待キャンセル', `${cancelerName} が招待をブッチしました`, [
             { text: '拝承', class: 'bg-gray-500', action: hideModal }
         ]);
     }
@@ -1943,10 +2065,8 @@ function acceptInvite() {
         gameType: currentGameType // ゲームタイプを返信
     });
 
-    if (userStatus !== 'gaming') {
-        userStatus = 'gaming';
-        updateMyPresence();
-    }
+    userStatus = 'gaming';
+    updateMyPresence();
 
     // ゲーム画面に遷移
     showScreen('game');
@@ -1989,13 +2109,14 @@ function handleAccept(payload) {
         case 'kurohige':
             gameName = 'くうはく危機一髪';
             break;
+        case 'stb':
+            gameName = 'あやしいタワーバトル';
+            break;
     }
     sendLobbyNotification(`${myName} と ${opponentName} の ${gameName} 対戦開始`);
 
-    if (userStatus !== 'gaming') {
-        userStatus = 'gaming';
-        updateMyPresence();
-    }
+    userStatus = 'gaming';
+    updateMyPresence();
 
     // ゲーム画面に遷移
     showScreen('game');
@@ -2085,8 +2206,16 @@ function handleIceCandidate(payload) {
 
 // 6.11 ゲーム終了・切断 (どちらか)
 function leaveGame() {
+    // 観戦者の場合の退出確認
     if (isSpectator) {
-        exitToLobby(); // 観戦者は確認なしで即退出
+        showModal('確認', '観戦を終了して待合室に戻りますか？', [
+            { text: 'キャンセル', class: 'bg-gray-500', action: hideModal },
+            {
+                text: '待合室に戻る', class: 'bg-red-600', action: () => {
+                    exitToLobby();
+                }
+            },
+        ]);
         return;
     }
 
@@ -2108,13 +2237,8 @@ function handleHangup() {
         return;
     }
 
-    // 接続終了時に即座にゲーム状態を更新
-    if (userStatus !== 'free') {
-        userStatus = "free";
-        updateMyPresence();
-    }
-
-    // カウントダウンモーダルを表示
+    // カウントダウン中はまだ「対戦中」の状態を維持するため、
+    // ここでは updateMyPresence を呼ばず、実際の更新は exitToLobby に任せる
     startExitCountdown('接続終了', '相手がゲームから退出しました。');
 }
 
@@ -2194,6 +2318,8 @@ function setupDataChannelListeners() {
                 initButaGame();
             } else if (currentGameType === 'kurohige') {
                 initKurohigeGame();
+            } else if (currentGameType === 'stb') {
+                initStbGame();
             }
             // ホスト側のみ roomId を生成・送信
             createRoomAndShare();
@@ -2227,6 +2353,8 @@ function setupDataChannelListeners() {
             handleButaData(msg);
         } else if (msg.gameType === 'kurohige') {
             handleKurohigeData(msg);
+        } else if (msg.gameType === 'stb') {
+            handleStbData(msg);
         } else {
             // ゲームタイプが不明な共通メッセージ（チャットルームIDなど）
             switch (msg.type) {
@@ -2242,6 +2370,7 @@ function setupDataChannelListeners() {
                     }
 
                     // ゲスト側も room_id を反映させるためPresenceを更新
+                    userStatus = 'gaming';
                     updateMyPresence();
                     break;
                 case 'emoticon-reaction':
@@ -2535,6 +2664,25 @@ function resetGameVariables() {
     kurohigeGameOver = false;
     kurohigeAnimating = false;
 
+    // あやしいタワーバトル
+    if (stbEngine) {
+        if (stbRender) Matter.Render.stop(stbRender);
+        if (stbRunner) Matter.Runner.stop(stbRunner);
+        Matter.Engine.clear(stbEngine);
+        if (stbRender && stbRender.canvas) stbRender.canvas.remove();
+        stbEngine = null;
+    }
+    stbAaBodiesMap.clear();
+    stbGameOver = false;
+    stbCurrentTurn = 1;
+    stbIsMovingLeft = false;
+    stbIsMovingRight = false;
+    stbIsRotatingCcw = false;
+    stbIsRotatingCw = false;
+    if (stbRestCheckTimeout) clearTimeout(stbRestCheckTimeout);
+    stbRestCounter = 0;
+    stbTimeoutCounter = 0;
+
     // 再戦フラグをリセット
     rematchRequested = false;
     opponentRematchRequested = false;
@@ -2549,6 +2697,9 @@ async function createRoomAndShare() {
     if (dataChannel && dataChannel.readyState === 'open') {
         sendData({ type: 'roomId', roomId: roomId }, false);
     }
+
+    userStatus = 'gaming';
+    updateMyPresence();
 }
 
 // 対戦部屋チャット初期化
@@ -2659,8 +2810,8 @@ async function showActiveLobbyUsersInGame(presenceState) {
                     continue; // 無効なデータはスキップ
                 }
 
-                // プレイ中のユーザーでなければユーザー一覧に加える
-                if (presence.user_status !== 'gaming') {
+                // プレイ中や観戦中でなければユーザー一覧に加える
+                if (presence.user_status !== 'gaming' && presence.user_status !== 'spectating') {
                     playerNames.push(presence.name);
                 }
             }
@@ -2842,15 +2993,16 @@ function setupGameUI() {
     othelloUI = document.getElementById('othello-ui');
     butaUI = document.getElementById('buta-ui');
     kurohigeUI = document.getElementById('kurohige-ui');
+    stbUI = document.getElementById('stb-ui');
     if (babanukiUI) babanukiUI.classList.add('hidden');
     if (quoridorUI) quoridorUI.classList.add('hidden');
     if (othelloUI) othelloUI.classList.add('hidden');
     if (butaUI) butaUI.classList.add('hidden');
     if (kurohigeUI) kurohigeUI.classList.add('hidden');
+    if (stbUI) stbUI.classList.add('hidden');
 
     drawnCardMessageEl.textContent = ''; // ババ抜きのメッセージクリア
     butaMessageEl.textContent = ''; // ぶたのしっぽのメッセージクリア
-
     if (currentGameType === 'babanuki') {
         // ババ抜きUI表示
         babanukiUI.classList.remove('hidden');
@@ -2858,6 +3010,7 @@ function setupGameUI() {
         othelloUI.classList.add('hidden');
         butaUI.classList.add('hidden');
         kurohigeUI.classList.add('hidden');
+        stbUI.classList.add('hidden');
 
         // ババ抜き用UI要素のセットアップ
         myNameEl.innerText = `${myName} (貴殿)`;
@@ -2873,6 +3026,7 @@ function setupGameUI() {
         othelloUI.classList.add('hidden');
         butaUI.classList.add('hidden');
         kurohigeUI.classList.add('hidden');
+        stbUI.classList.add('hidden');
 
         // コリドール用UI要素のセットアップ
         // P1 (ホスト) が青、 P2 (ゲスト) が赤
@@ -2903,6 +3057,7 @@ function setupGameUI() {
         babanukiUI.classList.add('hidden');
         quoridorUI.classList.add('hidden');
         butaUI.classList.add('hidden');
+        stbUI.classList.add('hidden');
 
         // 表示順変更のための要素取得
         const oPlayer1Info = document.getElementById('o-player1-info');
@@ -2938,6 +3093,7 @@ function setupGameUI() {
         quoridorUI.classList.add('hidden');
         othelloUI.classList.add('hidden');
         kurohigeUI.classList.add('hidden');
+        stbUI.classList.add('hidden');
 
         butaMyNameEl.innerText = `${myName} (貴殿)`;
         butaOpponentNameEl.innerText = `${opponentName} (敵)`;
@@ -2949,6 +3105,7 @@ function setupGameUI() {
         quoridorUI.classList.add('hidden');
         othelloUI.classList.add('hidden');
         butaUI.classList.add('hidden');
+        stbUI.classList.add('hidden');
 
         kurohigeMyNameEl.innerText = `${myName} (貴殿)`;
         kurohigeOpponentNameEl.innerText = `${opponentName} (敵)`;
@@ -2961,6 +3118,30 @@ function setupGameUI() {
 　|〓〓〓〓〓〓〓|
 　|　}}　||　{{　|
 　 |　　　　　　|`;
+    } else if (currentGameType === 'stb') {
+        stbUI.classList.remove('hidden');
+        babanukiUI.classList.add('hidden');
+        quoridorUI.classList.add('hidden');
+        othelloUI.classList.add('hidden');
+        butaUI.classList.add('hidden');
+        kurohigeUI.classList.add('hidden');
+
+        if (isHost) {
+            stbPlayer1Name.textContent = `甲: ${myName}`;
+            stbPlayer2Name.textContent = `乙: ${opponentName}`;
+        } else {
+            stbPlayer1Name.textContent = `甲: ${opponentName}`;
+            stbPlayer2Name.textContent = `乙: ${myName}`;
+        }
+
+        // 観戦者用 UI 調整
+        if (isSpectator) {
+            stbPlayer1Name.textContent = `甲: ${spectatorHostName}`;
+            stbPlayer2Name.textContent = `乙: ${spectatorGuestName}`;
+            stbControls.classList.add('hidden'); // 操作パネルを隠す
+        } else {
+            stbControls.classList.remove('hidden');
+        }
     }
 }
 
@@ -3241,7 +3422,7 @@ function initializeBabanukiGame() {
 
     // 初期ペアを捨てる
     myHand = discardPairsFromHand(hostHand, true); // ホストの自分の手札
-    shuffle(myHand); // ★追加: ソート状態を崩すためにシャッフル
+    shuffle(myHand); // ソート状態を崩すためにシャッフル
 
     const guestInitialHand = discardPairsFromHand(guestHand, true); // ゲストの初期手札
     shuffle(guestInitialHand); // ゲストの手札も送信前にシャッフル
@@ -3308,15 +3489,17 @@ function showRematchPrompt(isWinner) {
     if (isWinner) {
         playWinSound(); // 勝利音
         if (currentGameType === 'babanuki') {
-            resultMessage = `${myName} が ${opponentName} にババ抜きで勝ちました！`;
+            resultMessage = `${myName} が ${opponentName} にババ抜きで大勝利！`;
         } else if (currentGameType === 'quoridor') {
-            resultMessage = `${myName} が ${opponentName} にコリドールで勝ちました！`;
+            resultMessage = `${myName} が ${opponentName} にコリドールで大勝利！`;
         } else if (currentGameType === 'othello') {
-            resultMessage = `${myName} が ${opponentName} におまこんリバーシ (オセロ)で勝ちました！`;
+            resultMessage = `${myName} が ${opponentName} におまこんリバーシ (オセロ)で大勝利！`;
         } else if (currentGameType === 'buta') {
-            resultMessage = `${myName} が ${opponentName} にぶたのしっぽで勝ちました！`;
+            resultMessage = `${myName} が ${opponentName} にぶたのしっぽで大勝利！`;
         } else if (currentGameType === 'kurohige') {
-            resultMessage = `${myName} が ${opponentName} にくうはく危機一髪で勝ちました！`;
+            resultMessage = `${myName} が ${opponentName} にくうはく危機一髪で大勝利！`;
+        } else if (currentGameType === 'stb') {
+            resultMessage = `${myName} が ${opponentName} にあやしいタワーバトルで大勝利！`;
         }
         sendLobbyNotification(resultMessage);  // ロビーチャットに結果を通知
     } else {
@@ -3522,6 +3705,13 @@ function restartGame() {
         if (isHost) {
             statusMessage.textContent = "再戦開始...樽と生贄を準備しています...";
             initKurohigeGame();
+        } else {
+            statusMessage.textContent = "再戦開始...ホストを待っています...";
+        }
+    } else if (currentGameType === 'stb') {
+        if (isHost) {
+            statusMessage.textContent = "再戦開始...準備しています...";
+            initStbGame();
         } else {
             statusMessage.textContent = "再戦開始...ホストを待っています...";
         }
@@ -4896,7 +5086,7 @@ function handleButaData(msg) {
                 butaMessageEl.textContent = `敵の「${card.display}」は、場のマークと一致してペナルティ${penaltyCards}枚(^Д^)`;
                 butaMessageEl.classList.replace('text-white', 'text-yellow-300');
             } else {
-                butaMessageEl.textContent = `敵が「${card.display}」を引きました。`;
+                butaMessageEl.textContent = `敵が「${card.display}」を引いた。`;
                 butaMessageEl.classList.replace('text-yellow-300', 'text-white');
             }
 
@@ -4981,7 +5171,7 @@ function executeButaDraw(cardDisplay) {
         renderTextExpansionAnimation('ブタだ！',
             BABA_EFFECT_START_FONT_SIZE, BABA_EFFECT_MAX_FONT_SIZE, BABA_EFFECT_GROWTH_RATE,
             ANIMATION_INTERVAL_TIME, BABA_EFFECT_CLASS_LIST);
-        butaMessageEl.textContent = `貴殿の「${card.display}」は場のマークと一致し、ペナルティ${penaltyCards}枚(;´Д\`)`;
+        butaMessageEl.textContent = `貴殿の「${card.display}」は場のマークと一致してペナルティ${penaltyCards}枚(;´Д\`)`;
         butaMessageEl.classList.replace('text-white', 'text-yellow-300');
     } else {
         butaMessageEl.textContent = `貴殿の引いたカードは「${card.display}」です。`;
@@ -5246,6 +5436,450 @@ function playKurohigeAnimation(explodedPlayerNum) {
     }, 400);
 }
 
+// ==========================================
+// あやしいタワーバトル (STB) ゲームロジック
+// ==========================================
+
+function getStbCharWidth(char) {
+    return char.match(/[^\x00-\xff]|　/) ? 2 : 1;
+}
+
+function calculateStbRowsConfig(text) {
+    const lines = text.split('\n');
+    const config = [];
+    lines.forEach(line => {
+        let currentWidth = 0;
+        const charPositions = [];
+        for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            const isSpace = (char === ' ' || char === '　' || char === '\t' || char === '\xA0' || char === '~');
+            const charLen = getStbCharWidth(char);
+            charPositions.push({ isSpace, start: currentWidth, end: currentWidth + charLen });
+            currentWidth += charLen;
+        }
+        let startOffset = -1, endOffset = -1;
+        for (let i = 0; i < charPositions.length; i++) { if (!charPositions[i].isSpace) { startOffset = charPositions[i].start; break; } }
+        for (let i = charPositions.length - 1; i >= 0; i--) { if (!charPositions[i].isSpace) { endOffset = charPositions[i].end; break; } }
+        if (startOffset === -1 || endOffset === -1) {
+            config.push({ offset: 0, cols: 0 });
+        } else {
+            config.push({ offset: startOffset, cols: endOffset - startOffset });
+        }
+    });
+    return config;
+}
+
+function initStbGame() {
+    stbGameOver = false;
+    stbCurrentTurn = (Math.random() < 0.5) ? 1 : 2;
+
+    // 最初に出る文字絵(Current)と、次に出る文字絵(Next)の2つを生成
+    const currentIndex = Math.floor(Math.random() * stbMojieDatabase.length);
+    const nextIndex = Math.floor(Math.random() * stbMojieDatabase.length);
+
+    sendData({
+        type: 'stb-init',
+        currentTurn: stbCurrentTurn,
+        currentIndex: currentIndex,
+        nextIndex: nextIndex
+    });
+
+    setupStbPhysics(currentIndex, nextIndex);
+}
+
+function handleStbData(msg) {
+    switch (msg.type) {
+        case 'stb-init':
+            stbCurrentTurn = msg.currentTurn;
+            setupStbPhysics(msg.currentIndex, msg.nextIndex);
+            break;
+        case 'stb-sync-waiting':
+            // 相手が動かしているAAの位置・角度を同期
+            if (stbCurrentAAObj && stbCurrentAAObj.label === 'aa_waiting') {
+                Matter.Body.setPosition(stbCurrentAAObj, { x: msg.x, y: msg.y });
+                Matter.Body.setAngle(stbCurrentAAObj, msg.angle);
+            }
+            break;
+        case 'stb-drop':
+            if (stbCurrentAAObj && stbCurrentAAObj.label === 'aa_waiting') {
+                // 落下時の最終座標を強制同期してズレを最小化
+                Matter.Body.setPosition(stbCurrentAAObj, { x: msg.x, y: msg.y });
+                Matter.Body.setAngle(stbCurrentAAObj, msg.angle);
+                stbCurrentAAObj.label = 'aa_falling';
+                Matter.Body.setStatic(stbCurrentAAObj, false);
+                stbCurrentAAObj = null;
+                setStbControlsEnabled(false);
+                if (stbRestCheckTimeout) clearTimeout(stbRestCheckTimeout);
+
+                stbRestCounter = 0;
+                stbTimeoutCounter = 0;
+
+                statusMessage.textContent = "文字絵の動きをみまもり中(´ー｀)";
+                statusMessage.classList.add('animate-pulse');
+            }
+            break;
+        case 'stb-next-turn':
+            stbCurrentTurn = msg.currentTurn;
+            stbCurrentAaData = stbNextAaData;
+            stbNextAaData = stbMojieDatabase[msg.nextIndex];
+            stbPreviewContent.textContent = stbNextAaData.text;
+            spawnStbAA();
+            break;
+        case 'stb-gameover':
+            triggerStbGameOver(msg.loserNum);
+            break;
+        case 'stb-sync-all':
+            if (isHost) return; // ゲストのみ処理を実行
+            if (msg.bodies) {
+                msg.bodies.forEach(b => {
+                    const body = Matter.Composite.get(stbEngine.world, b.id, 'body');
+                    // ゲスト自身のターンで、現在自分が操作中の「落下待ち文字絵」は自身の操作を優先するため上書きしない
+                    if (body && !(stbCurrentTurn === myPlayerNum && body.label === 'aa_waiting')) {
+                        Matter.Body.setPosition(body, { x: b.x, y: b.y });
+                        Matter.Body.setAngle(body, b.angle);
+                    }
+                });
+            }
+            break;
+    }
+}
+
+function setupStbPhysics(currentIndex, nextIndex) {
+    // 物理エンジンの論理サイズを全端末で完全固定 (600x600)
+    stbContainerWidth = 600;
+    stbContainerHeight = 600;
+
+    // プレイヤー側は初期状態でキャンバスを隠す
+    if (stbCanvasContainer) stbCanvasContainer.classList.add('hidden');
+
+    // 実際の画面表示サイズに合わせてスケールを計算し、ラッパーに適用する
+    const rect = stbGameContainer.getBoundingClientRect();
+    const scale = rect.width / stbContainerWidth;
+    const wrapper = document.getElementById('stb-world-wrapper');
+    if (wrapper) {
+        wrapper.style.transform = `scale(${scale})`;
+    }
+
+    stbAaLayer.innerHTML = '';
+    stbAaBodiesMap.clear();
+
+    if (stbEngine) {
+        Matter.Render.stop(stbRender);
+        Matter.Runner.stop(stbRunner);
+        Matter.Engine.clear(stbEngine);
+        if (stbRender.canvas) stbRender.canvas.remove();
+    }
+
+    stbEngine = Matter.Engine.create();
+
+    stbRender = Matter.Render.create({
+        element: stbCanvasContainer,
+        engine: stbEngine,
+        options: { width: stbContainerWidth, height: stbContainerHeight, wireframes: false, background: 'transparent' }
+    });
+
+    const ground = Matter.Bodies.rectangle(
+        300, 480, 500, 40,
+        { isStatic: true, id: 'ground', friction: 0.8, render: { fillStyle: '#78350f' } }
+    );
+    ground.label = 'ground';
+
+    // 落下判定センサー
+    const deathZone = Matter.Bodies.rectangle(
+        300, 700, 1800, 50,
+        { isStatic: true, isSensor: true, label: 'deathZone', render: { visible: false } }
+    );
+
+    Matter.Composite.add(stbEngine.world, [ground, deathZone]);
+
+    Matter.Events.on(stbEngine, 'collisionStart', handleStbCollision);
+    Matter.Events.on(stbEngine, 'beforeUpdate', updateStbWaitingAA);
+    Matter.Events.on(stbEngine, 'afterUpdate', syncStbAALayer);
+    Matter.Events.on(stbEngine, 'afterUpdate', checkStbRestState);
+    Matter.Events.on(stbEngine, 'afterUpdate', syncStbAllBodies);
+
+    Matter.Render.run(stbRender);
+    stbRunner = Matter.Runner.create({ isFixed: true });
+    Matter.Runner.run(stbRunner, stbEngine);
+
+    stbGameOver = false;
+
+    stbCurrentAaData = stbMojieDatabase[currentIndex];
+    stbNextAaData = stbMojieDatabase[nextIndex];
+    stbPreviewContent.textContent = stbNextAaData.text;
+
+    spawnStbAA();
+}
+
+function spawnStbAA() {
+    if (stbGameOver) return;
+
+    const data = stbCurrentAaData;
+    const lines = data.text.split('\n');
+    const rowsConfig = calculateStbRowsConfig(data.text);
+    let maxTotalCols = 0;
+    lines.forEach(line => {
+        let lineWidth = 0;
+        for (let i = 0; i < line.length; i++) lineWidth += getStbCharWidth(line[i]);
+        if (lineWidth > maxTotalCols) maxTotalCols = lineWidth;
+    });
+
+    const totalWidthPx = maxTotalCols * stbCharWidth;
+    const totalHeightPx = lines.length * stbCharHeight;
+    const parts = [];
+    const spawnX = stbContainerWidth / 2;
+    const spawnY = 80;
+
+    rowsConfig.forEach((row, i) => {
+        if (row.cols <= 0) return;
+        const w = row.cols * stbCharWidth;
+        const h = stbCharHeight;
+        const rowLeft = spawnX - totalWidthPx / 2 + row.offset * stbCharWidth;
+        const rowX = rowLeft + w / 2;
+        const rowY = spawnY - totalHeightPx / 2 + (i + 0.5) * stbCharHeight;
+
+        const part = Matter.Bodies.rectangle(rowX, rowY, w, h, {
+            density: data.density,
+            friction: 1.0, // data.friction,
+            restitution: 0.0, // data.restitution,
+            frictionAir: 0.05,
+        });
+        parts.push(part);
+    });
+
+    const compoundBody = Matter.Body.create({ parts: parts, label: 'aa_waiting', isStatic: true });
+    const centerOffset = { x: spawnX - compoundBody.position.x, y: spawnY - compoundBody.position.y };
+    Matter.Body.setPosition(compoundBody, { x: spawnX, y: spawnY });
+
+    const aaElem = document.createElement('div');
+    aaElem.className = 'stb-aa-element';
+    aaElem.textContent = data.text;
+    stbAaLayer.appendChild(aaElem);
+
+    stbAaBodiesMap.set(compoundBody.id, { element: aaElem, data: data, centerOffset: centerOffset });
+    stbCurrentAAObj = compoundBody;
+    Matter.Composite.add(stbEngine.world, stbCurrentAAObj);
+
+    updateStbUI();
+}
+
+function updateStbWaitingAA() {
+    // 自分のターンの時だけローカル入力を反映し、相手に同期を送る
+    if (!isSpectator && stbCurrentTurn === myPlayerNum && stbCurrentAAObj && stbCurrentAAObj.label === 'aa_waiting') {
+        let moved = false;
+
+        // 左右の移動処理
+        let dx = 0;
+        if (stbIsMovingLeft) dx -= stbMoveSpeed;
+        if (stbIsMovingRight) dx += stbMoveSpeed;
+
+        if (dx !== 0) {
+            const newX = stbCurrentAAObj.position.x + dx;
+            const boundedX = Math.max(20, Math.min(stbContainerWidth - 20, newX));
+            Matter.Body.setPosition(stbCurrentAAObj, { x: boundedX, y: stbCurrentAAObj.position.y });
+            moved = true;
+        }
+
+        // 回転処理
+        let dAngle = 0;
+        const rotSpeed = 0.05; // 回転スピード（数値が大きいほど早く回る）
+        if (stbIsRotatingCcw) dAngle -= rotSpeed;
+        if (stbIsRotatingCw) dAngle += rotSpeed;
+
+        if (dAngle !== 0) {
+            Matter.Body.setAngle(stbCurrentAAObj, stbCurrentAAObj.angle + dAngle);
+            moved = true;
+        }
+
+        // --- 同期処理 ---
+        // 操作帯域の節約 (約3フレームに1回送信)
+        stbSyncThrottle++;
+        if (moved && stbSyncThrottle % 3 === 0) {
+            sendData({ type: 'stb-sync-waiting', x: stbCurrentAAObj.position.x, y: stbCurrentAAObj.position.y, angle: stbCurrentAAObj.angle });
+        }
+    }
+}
+
+function syncStbAALayer() {
+    stbAaBodiesMap.forEach((mapData, bodyId) => {
+        const body = Matter.Composite.get(stbEngine.world, bodyId, 'body');
+        if (body && mapData.element) {
+            const pos = body.position;
+            const angle = body.angle;
+            const offset = mapData.centerOffset;
+            const cos = Math.cos(angle);
+            const sin = Math.sin(angle);
+            const drawX = pos.x + (offset.x * cos - offset.y * sin);
+            const drawY = pos.y + (offset.x * sin + offset.y * cos);
+            mapData.element.style.transform = `translate(-50%, -50%) translate(${drawX}px, ${drawY}px) rotate(${angle}rad)`;
+        }
+    });
+}
+
+function stbDropAA() {
+    if (isSpectator || stbGameOver || stbCurrentTurn !== myPlayerNum || !stbCurrentAAObj || stbCurrentAAObj.label !== 'aa_waiting') return;
+
+    // 落下指示を送信
+    sendData({ type: 'stb-drop', x: stbCurrentAAObj.position.x, y: stbCurrentAAObj.position.y, angle: stbCurrentAAObj.angle });
+
+    // ローカルで落下させる
+    stbCurrentAAObj.label = 'aa_falling';
+    Matter.Body.setStatic(stbCurrentAAObj, false);
+    stbCurrentAAObj = null;
+    setStbControlsEnabled(false);
+
+    if (stbRestCheckTimeout) clearTimeout(stbRestCheckTimeout);
+    stbRestCounter = 0; // 落とした瞬間にカウンターをリセット
+    stbTimeoutCounter = 0; // 落とした瞬間にタイムアウト計測を開始
+
+    statusMessage.textContent = "文字絵の動きをみまもり中(´ー｀)";
+    statusMessage.classList.add('animate-pulse'); // ドキドキ感を出すために少し点滅させる
+}
+
+function checkStbRestState() {
+    if (stbGameOver) return;
+
+    // ホスト側が静止判定の主導権を握る
+    if (isHost && !stbCurrentAAObj) {
+        const bodies = Matter.Composite.allBodies(stbEngine.world);
+        let isAllResting = true;
+
+        const speedThreshold = 0.2;
+        const angularVelocityThreshold = 0.04;
+
+        for (let i = 0; i < bodies.length; i++) {
+            const body = bodies[i];
+            if (body.label === 'aa_falling' || body.label === 'aa_landed') {
+                const speed = Math.sqrt(body.velocity.x ** 2 + body.velocity.y ** 2);
+                if (speed > speedThreshold || Math.abs(body.angularVelocity) > angularVelocityThreshold) {
+                    isAllResting = false;
+                    break;
+                }
+            }
+        }
+
+        // 文字絵が落下中状態の間、タイムアウトカウンターを毎フレーム進める
+        stbTimeoutCounter++;
+        // 指定フレーム数経過したら強制タイムアウト
+        const isTimeout = (stbTimeoutCounter >= STB_TIMEOUT_FRAMES);
+
+        // 静止している、または強制タイムアウトになった場合
+        if (isAllResting || isTimeout) {
+            if (isAllResting) {
+                stbRestCounter++; // タイムアウトではなく純粋に静止している場合のみカウント
+            }
+
+            // 静止状態が30フレーム（約0.5秒）続いたか、タイムアウト（約5秒）に達した場合
+            if (stbRestCounter >= 30 || isTimeout) {
+                stbRestCounter = 0;
+                stbTimeoutCounter = 0; // カウンターを両方リセット
+
+                // --- ターン切り替え処理 ---
+                stbCurrentTurn = (stbCurrentTurn === 1) ? 2 : 1;
+                const newNextIndex = Math.floor(Math.random() * stbMojieDatabase.length);
+
+                // ホストから次のターン情報を送信
+                sendData({ type: 'stb-next-turn', currentTurn: stbCurrentTurn, nextIndex: newNextIndex });
+
+                // ローカル（ホスト）の反映: NEXTをCURRENTに格上げし、新しいNEXTをセット
+                stbCurrentAaData = stbNextAaData;
+                stbNextAaData = stbMojieDatabase[newNextIndex];
+                stbPreviewContent.textContent = stbNextAaData.text;
+
+                spawnStbAA();
+            }
+        } else {
+            // 動いている物体があれば静止カウンターをリセット (タイムアウトカウンターは進み続ける)
+            stbRestCounter = 0;
+        }
+    }
+}
+
+function handleStbCollision(event) {
+    if (stbGameOver) return;
+    const pairs = event.pairs;
+    for (let i = 0; i < pairs.length; i++) {
+        const bodyA = pairs[i].bodyA.parent || pairs[i].bodyA;
+        const bodyB = pairs[i].bodyB.parent || pairs[i].bodyB;
+        if (bodyA.label === 'aa_falling' && bodyB.label !== 'deathZone') bodyA.label = 'aa_landed';
+        else if (bodyB.label === 'aa_falling' && bodyA.label !== 'deathZone') bodyB.label = 'aa_landed';
+
+        if (bodyA.label === 'deathZone' || bodyB.label === 'deathZone') {
+            const fallingBody = bodyA.label === 'deathZone' ? bodyB : bodyA;
+            if (fallingBody.label !== 'aa_waiting') {
+                // 発見した方（ホスト優先）がゲームオーバーを送信
+                if (isHost) {
+                    // 崩れた瞬間のターンプレイヤーをそのまま「負け」として判定する
+                    sendData({ type: 'stb-gameover', loserNum: stbCurrentTurn });
+                    triggerStbGameOver(stbCurrentTurn);
+                }
+            }
+        }
+    }
+}
+
+function triggerStbGameOver(loserPlayerNum) {
+    if (stbGameOver) return;
+    stbGameOver = true;
+    updateStbUI();
+    setStbControlsEnabled(false);
+    showRematchPrompt(loserPlayerNum !== myPlayerNum);
+}
+
+function setStbControlsEnabled(enabled) {
+    if (isSpectator) return;
+    const isMyTurn = (stbCurrentTurn === myPlayerNum);
+    const active = enabled && isMyTurn && !stbGameOver;
+    [stbBtnLeft, stbBtnRight, stbBtnDrop, stbBtnRotCcw, stbBtnRotCw].forEach(btn => {
+        if (!btn) return;
+        btn.disabled = !active;
+        if (active) btn.classList.remove('opacity-50', 'pointer-events-none');
+        else btn.classList.add('opacity-50', 'pointer-events-none');
+    });
+}
+
+function updateStbUI() {
+    if (!stbGameOver) {
+        printTurnStatus(stbCurrentTurn === myPlayerNum);
+        setStbControlsEnabled(stbCurrentAAObj && stbCurrentAAObj.label === 'aa_waiting');
+    } else {
+        statusMessage.textContent = "あやしいタワー崩壊！";
+        statusMessage.classList.remove('animate-pulse');
+    }
+
+    if (isHost) broadcastGameState();
+}
+
+function syncStbAllBodies() {
+    if (stbGameOver) return;
+
+    stbSyncAllCounter++;
+
+    // ホストがマスターとして全てのオブジェクトの座標を配信する
+    if (isHost) {
+        // 1. 対戦相手(ゲスト)へは高頻度(約20fps: 3フレームに1回)で強制同期
+        if (stbSyncAllCounter % 3 === 0) {
+            const syncData = [];
+            stbAaBodiesMap.forEach((data, id) => {
+                const body = Matter.Composite.get(stbEngine.world, id, 'body');
+                if (body) {
+                    syncData.push({
+                        id: id,
+                        x: body.position.x,
+                        y: body.position.y,
+                        angle: body.angle
+                    });
+                }
+            });
+            sendData({ type: 'stb-sync-all', bodies: syncData });
+        }
+
+        // 2. 観戦者(Supabase経由)へは通信制限に配慮しつつ(約12fps: 5フレームに1回)で同期
+        if (stbSyncAllCounter % 5 === 0) {
+            broadcastGameState();
+        }
+    }
+}
 
 // --- DOM初期化 ---
 function initializeDOMElements() {
@@ -5343,6 +5977,47 @@ function initializeDOMElements() {
     kurohigePersonEl = document.getElementById('kurohige-person');
     kurohigeBarrelEl = document.getElementById('kurohige-barrel');
 
+    // あやしいタワーバトルDOM
+    gameChoiceStbBtn = document.getElementById('game-choice-stb');
+    if (gameChoiceStbBtn) gameChoiceStbBtn.onclick = () => sendInvite(opponentUserId || (document.querySelector('#player-list button') ? 'temp' : ''), opponentName || 'temp', 'stb'); // 仮の呼び出し対策
+    stbUI = document.getElementById('stb-ui');
+    stbPlayer1Name = document.getElementById('stb-player1-name');
+    stbPlayer2Name = document.getElementById('stb-player2-name');
+    stbPreviewContent = document.getElementById('stb-preview-content');
+    stbGameContainer = document.getElementById('stb-game-container');
+    stbCanvasContainer = document.getElementById('stb-canvas-container');
+    stbAaLayer = document.getElementById('stb-aa-layer');
+    stbControls = document.getElementById('stb-controls');
+    stbBtnLeft = document.getElementById('stb-btn-left');
+    stbBtnRight = document.getElementById('stb-btn-right');
+    stbBtnDrop = document.getElementById('stb-btn-drop');
+    stbBtnRotCcw = document.getElementById('stb-btn-rot-ccw');
+    stbBtnRotCw = document.getElementById('stb-btn-rot-cw');
+
+    // あやしいタワーバトル 操作イベント (長押し対応)
+    const preventDefault = (e) => e.preventDefault();
+    if (stbBtnLeft) {
+        stbBtnLeft.addEventListener('pointerdown', (e) => { e.stopPropagation(); stbIsMovingLeft = true; });
+        stbBtnRight.addEventListener('pointerdown', (e) => { e.stopPropagation(); stbIsMovingRight = true; });
+        document.addEventListener('pointerup', () => { stbIsMovingLeft = false; stbIsMovingRight = false; });
+        document.addEventListener('pointercancel', () => { stbIsMovingLeft = false; stbIsMovingRight = false; });
+
+        stbBtnRotCcw.addEventListener('pointerdown', (e) => { e.stopPropagation(); stbIsRotatingCcw = true; });
+        stbBtnRotCw.addEventListener('pointerdown', (e) => { e.stopPropagation(); stbIsRotatingCw = true; });
+        document.addEventListener('pointerup', () => {
+            stbIsMovingLeft = false; stbIsMovingRight = false;
+            stbIsRotatingCcw = false; stbIsRotatingCw = false;
+        });
+        document.addEventListener('pointercancel', () => {
+            stbIsMovingLeft = false; stbIsMovingRight = false;
+            stbIsRotatingCcw = false; stbIsRotatingCw = false;
+        });
+
+        stbBtnDrop.addEventListener('pointerdown', (e) => { e.stopPropagation(); stbDropAA(); });
+
+        [stbBtnLeft, stbBtnRight, stbBtnDrop, stbBtnRotCcw, stbBtnRotCw].forEach(btn => btn.addEventListener('contextmenu', preventDefault));
+    }
+
     // 共通 (ゲーム画面)
     gameChatMessages = document.getElementById('game-chat-messages');
     gameChatInput = document.getElementById('game-chat-input');
@@ -5372,6 +6047,16 @@ function initializeDOMElements() {
     // コリドール用キャンバスのリサイズイベント
     window.addEventListener('resize', resizeQuoridorCanvas);
 
+    // ウィンドウのリサイズ時にあやしいタワーバトルのスケールを再計算
+    window.addEventListener('resize', () => {
+        if (currentGameType === 'stb' && stbGameContainer) {
+            const rect = stbGameContainer.getBoundingClientRect();
+            const scale = rect.width / 600; // 600は論理固定幅
+            const wrapper = document.getElementById('stb-world-wrapper');
+            if (wrapper) wrapper.style.transform = `scale(${scale})`;
+        }
+    });
+
     // 鍵盤楽器の設定
     // すべてのキー要素を取得
     const keys = document.querySelectorAll('.key');
@@ -5397,4 +6082,12 @@ function initializeDOMElements() {
 document.addEventListener('DOMContentLoaded', () => {
     initializeDOMElements();
     showScreen('setup');
+});
+
+
+// ブラウザを閉じた時、またはリロードした時に確実にロビーから退出（Untrack）する
+window.addEventListener('beforeunload', () => {
+    if (lobbyChannel && lobbyChannel.state === 'joined') {
+        lobbyChannel.untrack();
+    }
 });

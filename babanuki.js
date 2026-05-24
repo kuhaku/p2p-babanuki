@@ -5494,7 +5494,7 @@ function handleStbData(msg) {
             setupStbPhysics(msg.currentIndex, msg.nextIndex);
             break;
         case 'stb-sync-waiting':
-            // 相手が動かしているAAの位置・角度を同期
+            // 相手が動かしている文字絵の位置・角度を同期
             if (stbCurrentAAObj && stbCurrentAAObj.label === 'aa_waiting') {
                 Matter.Body.setPosition(stbCurrentAAObj, { x: msg.x, y: msg.y });
                 Matter.Body.setAngle(stbCurrentAAObj, msg.angle);

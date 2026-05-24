@@ -87,10 +87,11 @@ const stbMojieDatabase = [
     { id: 'marimite1', text: `∧ミミ∧\n彡\`Д´ミ\n/彡 彡 ミ>\n  /  |`, density: 0.0012, friction: 0.9, restitution: 0.05 },
     { id: 'marimite2', text: `∧ミミ∧\n彡*'-'*ミ\n 彡ヽﾉミ\n   | |`, density: 0.0012, friction: 0.9, restitution: 0.05 },
     { id: 'dauso1', text: `(´Д\`)`, density: 0.001, friction: 1.0, restitution: 0.0 },
-    { id: 'dauso2', text: `(´Д\`)\nъ(  ъ)\n  <  <`, density: 0.001, friction: 1.0, restitution: 0.0 },
+    { id: 'dauso2', text: ` (´Д\`)\nъ(  ъ)\n  <  <`, density: 0.001, friction: 1.0, restitution: 0.0 },
     { id: 'grave', text: `    ┏━━━┓\n    ┃  空  ┃\n    ┃  白  ┃\n    ┃  之  ┃\n    ┃  墓  ┃\n  ┏┻━━━┻┓\n┏┻━━━━━┻┓\n┃  ┏━━━┓  ┃\n┻━┻━━━┻━┻`, density: 0.001, friction: 1.0, restitution: 0.0 },
     { id: 'teleho', text: `◎＜\nﾉ`, density: 0.001, friction: 1.0, restitution: 0.0 },
     { id: 'fukuro1', text: `┌──┐「\n│ ´\`│ノ\n (ヽ  )\n  ＞＞`, density: 0.0013, friction: 1.0, restitution: 0.0 },
     { id: 'fukuro2', text: `  ┌──┐\nヽ│´｀│ﾉ\n   (     )\n   <    <`, density: 0.0013, friction: 1.0, restitution: 0.0 },
     { id: 'unko', text: `   λ\n (´ｰ｀)\n(       )`, density: 0.001, friction: 1.0, restitution: 0.0 },
+    { id: 'hiphop', text: `      ／⌒ヽ\n     [||||||]\n     (´ー｀)\n  _＿|￣∥￣|＿_\nノヽ  ￣∥￣  / ヽ\n|  (￣￣∥￣￣)  |\n|  (￣￣∥￣￣)  |\n|  (￣￣∥￣￣)  |\n|  (￣￣∥￣￣)  |\nヽ_ﾉ￣￣"~￣￣ヽ_ﾉ\n ヽﾉ\`   ||    ヽノ\n |      │    ＿|\n |      │   |￣|\n |      │    ￣|\n ヽ～   人   ～ ﾉ\n  /⌒ヽ´ \`､ﾉ⌒ヽ`, density: 0.0009, friction: 1.0, restitution: 0.0 },
 ];

@@ -5833,8 +5833,15 @@ function setStbControlsEnabled(enabled) {
     [stbBtnLeft, stbBtnRight, stbBtnDrop, stbBtnRotCcw, stbBtnRotCw].forEach(btn => {
         if (!btn) return;
         btn.disabled = !active;
-        if (active) btn.classList.remove('opacity-50', 'pointer-events-none');
-        else btn.classList.add('opacity-50', 'pointer-events-none');
+        if (active) {
+            // アクティブ時: 無効化系クラスを外し、ポインターにする
+            btn.classList.remove('opacity-50', 'pointer-events-none', 'cursor-not-allowed');
+            btn.classList.add('cursor-pointer');
+        } else {
+            // 非アクティブ時: ポインター無効化クラスを外し、禁止マークにする
+            btn.classList.remove('cursor-pointer', 'pointer-events-none');
+            btn.classList.add('opacity-50', 'cursor-not-allowed');
+        }
     });
 }
 

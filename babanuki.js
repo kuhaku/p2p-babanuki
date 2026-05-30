@@ -1628,11 +1628,7 @@ function applyGameStateFromHost(state) {
             Matter.Render.run(stbRender);
 
             // 台座（床）の配置
-            const ground = Matter.Bodies.rectangle(300, 480, 500, 40, {
-                isStatic: true,
-                id: 'ground',
-                render: { fillStyle: '#78350f' }
-            });
+            setupStbGround(stbEngine, true);
             ground.label = 'ground';
             Matter.Composite.add(stbEngine.world, ground);
 
@@ -5440,6 +5436,67 @@ function playKurohigeAnimation(explodedPlayerNum) {
 // あやしいタワーバトル (STB) ゲームロジック
 // ==========================================
 
+// STB用の灰皿状の床を生成し、Matter.jsとDOMの両方に追加する関数
+function setupStbGround(engine, isSpectator = false) {
+    // 灰皿のようなシルバー/グレーの色合い
+    const groundOptions = { isStatic: true, friction: 0.8, render: { fillStyle: '#9ca3af' } };
+
+    // 灰皿のパーツ定義 (壁の高さを50に下げ、それに合わせて壁とリップのY座標を調整)
+    const groundBase = Matter.Bodies.rectangle(300, 480, 340, 40, { ...groundOptions, id: 'ground' });
+    groundBase.label = 'ground';
+    const groundLeftWall = Matter.Bodies.rectangle(140, 435, 20, 50, groundOptions);
+    groundLeftWall.label = 'ground';
+    const groundLeftLip = Matter.Bodies.rectangle(120, 400, 60, 20, groundOptions);
+    groundLeftLip.label = 'ground';
+    const groundRightWall = Matter.Bodies.rectangle(460, 435, 20, 50, groundOptions);
+    groundRightWall.label = 'ground';
+    const groundRightLip = Matter.Bodies.rectangle(480, 400, 60, 20, groundOptions);
+    groundRightLip.label = 'ground';
+
+    const parts = [groundBase, groundLeftWall, groundLeftLip, groundRightWall, groundRightLip];
+
+    if (!isSpectator) {
+        // 落下判定センサー（プレイヤーのみ配置）
+        const deathZone = Matter.Bodies.rectangle(
+            300, 700, 1800, 50,
+            { isStatic: true, isSensor: true, label: 'deathZone', render: { visible: false } }
+        );
+        parts.push(deathZone);
+    }
+
+    Matter.Composite.add(engine.world, parts);
+
+    // 灰皿状のDOM要素を動的生成して、画面表示を物理エンジンにピッタリ合わせる
+    const wrapper = document.getElementById('stb-world-wrapper');
+    if (wrapper) {
+        const oldGround = document.getElementById('stb-ground-element');
+        if (oldGround) oldGround.style.display = 'none'; // 元の平らな床を隠す
+
+        const createHTMLWall = (id, x, y, w, h) => {
+            let el = document.getElementById(id);
+            if (!el) {
+                el = document.createElement('div');
+                el.id = id;
+                // 灰皿っぽいグレーのスタイル
+                el.className = 'absolute bg-slate-400 border-2 border-slate-600 shadow-md z-15 rounded-sm';
+                wrapper.appendChild(el);
+            }
+            el.style.display = 'block';
+            el.style.left = (x - w / 2) + 'px';
+            el.style.top = (y - h / 2) + 'px';
+            el.style.width = w + 'px';
+            el.style.height = h + 'px';
+        };
+
+        // 物理エンジンの中心座標を元にHTML要素を配置 (Matter.jsの座標と完全に一致)
+        createHTMLWall('stb-ground-base', 300, 480, 340, 40);
+        createHTMLWall('stb-ground-left-wall', 140, 435, 20, 50);
+        createHTMLWall('stb-ground-left-lip', 120, 400, 60, 20);
+        createHTMLWall('stb-ground-right-wall', 460, 435, 20, 50);
+        createHTMLWall('stb-ground-right-lip', 480, 400, 60, 20);
+    }
+}
+
 function getStbCharWidth(char) {
     return char.match(/[^\x00-\xff]|　/) ? 2 : 1;
 }
@@ -5578,19 +5635,8 @@ function setupStbPhysics(currentIndex, nextIndex) {
         options: { width: stbContainerWidth, height: stbContainerHeight, wireframes: false, background: 'transparent' }
     });
 
-    const ground = Matter.Bodies.rectangle(
-        300, 480, 500, 40,
-        { isStatic: true, id: 'ground', friction: 0.8, render: { fillStyle: '#78350f' } }
-    );
-    ground.label = 'ground';
-
-    // 落下判定センサー
-    const deathZone = Matter.Bodies.rectangle(
-        300, 700, 1800, 50,
-        { isStatic: true, isSensor: true, label: 'deathZone', render: { visible: false } }
-    );
-
-    Matter.Composite.add(stbEngine.world, [ground, deathZone]);
+    // 台座（床）と落下判定センサーの配置
+    setupStbGround(stbEngine, false);
 
     Matter.Events.on(stbEngine, 'collisionStart', handleStbCollision);
     Matter.Events.on(stbEngine, 'beforeUpdate', updateStbWaitingAA);
